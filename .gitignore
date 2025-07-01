@@ -1,41 +1,15 @@
-# Prerequisites
-*.d
-
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Linker files
-*.ilk
-
-# Debugger Files
-*.pdb
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
+# 바이너리 파일 무시
 *.exe
 *.out
-*.app
+*.o
 
-# debug information files
-*.dwo
+# 개발 환경 관련 폴더 무시
+.vscode/
+.idea/
+
+# macOS 특유 파일
+.DS_Store
+
+# 백업 파일들
+*~
+
