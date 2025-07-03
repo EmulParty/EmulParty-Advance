@@ -14,7 +14,7 @@ class Chip8; // 전방 선언 (헤더에서 Chip8 전체 정의 불필요)
 
 namespace OpcodeTable {
 
-    using OpcodeHandler = std::function<void(Chip8&, uint16_t)>;
+    using OpcodeHandler = std::function<void(Chip8&, uint32_t)>; // (change)
 
     // 명령어 0x0000 ~ 0xFFFF 중, 상위 4비트 또는 특정 패턴으로 구분하여 핸들러를 매핑합니다.
     extern std::array<OpcodeHandler, 16> primary_table; // 예: 0x1000 => Jump
@@ -25,6 +25,6 @@ namespace OpcodeTable {
      */
     void Initialize();
 
-    void Execute(Chip8& chip8, uint16_t opcode);
+    void Execute(Chip8& chip8, uint32_t opcode); // (change)
 
 } // namespace OpcodeTable
