@@ -1,19 +1,19 @@
 #include "platform.hpp"
-#include "chip8.hpp"
+#include "chip8_32.hpp"
 #include "timer.hpp"
-#include "opcode_table.hpp"
+#include "opcode_table_32.hpp"
 
 
 #include <iostream>
 
 /**
  * @file main.cpp
- * @brief CHIP-8 에뮬레이터 실행 진입점
+ * @brief CHIP-8 32비트 확장 에뮬레이터 실행 진입점
  */
 
 int main(int argc, char* argv[]) {
 
-    std::cout << "main 시작" << std::endl;
+    std::cout << "CHIP-8 32-bit Emulator 시작" << std::endl;
 
     // 명령줄 인자가 정확히 2개여야 함 (실행 파일 + ROM 파일)
     if (argc != 2) {
@@ -21,18 +21,18 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Opcode 테이블 초기화 (명령어 처리용 디스패처 준비)
-    OpcodeTable::Initialize();
+    // 32비트 Opcode 테이블 초기화 (명령어 처리용 디스패처 준비)
+    OpcodeTable_32::Initialize();
 
     // ROM 경로 저장
     const char* rom_path = argv[1];
 
-    // CHIP-8 시스템 초기화
-    Chip8 chip8;
+    // CHIP-8 32비트 시스템 초기화
+    Chip8_32 chip8_32;
 
-    // SDL 기반의 화면 출력 플랫폼 초기화
+    // SDL 기반의 화면 출력 플랫폼 초기화 (화면 해상도는 기존과 동일)
     Platform platform(
-        "CHIP-8 Emulator",          // 윈도우 제목
+        "CHIP-8 32-bit Emulator",   // 윈도우 제목
         VIDEO_WIDTH * SCALE,        // 창 너비 (픽셀 * 배율)
         VIDEO_HEIGHT * SCALE,       // 창 높이
         VIDEO_WIDTH,                // 텍스처 너비 (64)
@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
     }
 
     // ROM 파일 로딩 실패 시 종료
-    if (!chip8.load_rom(rom_path)) {
+    if (!chip8_32.load_rom(rom_path)) {
         std::cerr << "Failed to load ROM: " << rom_path << std::endl;
         return 1;
     }
@@ -58,32 +58,41 @@ int main(int argc, char* argv[]) {
     uint32_t last_timer_update = timer::get_ticks();
     const uint32_t timer_interval = 1000 / 60; // 60Hz = 16.67ms
 
+    std::cout << "32비트 CHIP-8 에뮬레이터 실행 중..." << std::endl;
+    std::cout << "메모리 크기: " << MEMORY_SIZE_32 << " 바이트 (64KB)" << std::endl;
+    std::cout << "레지스터 개수: " << NUM_REGISTERS_32 << "개 (32비트)" << std::endl;
+    std::cout << "스택 크기: " << STACK_SIZE_32 << "단계" << std::endl;
+    
+    int cycle_count = 0;
     // 메인 루프: 키 입력 → 명령 실행 → 타이머 업데이트 → 화면 출력
-    while (!quit) {
+    while (!quit && cycle_count < 20) {  //20 사이클만 수행
         // 1. 사용자 입력 처리 (종료 키 포함)
-        quit = platform.ProcessInput(chip8.keypad);
+        quit = platform.ProcessInput(chip8_32.keypad);
 
         // 2. 하나의 명령어 사이클 수행 (Fetch → Decode → Execute)
-        chip8.cycle();
+        chip8_32.cycle();
 
         // 3. 60Hz 타이머 값 감소 (Delay / Sound Timer)
         uint32_t current_time = timer::get_ticks();
         if (current_time - last_timer_update >= timer_interval) {
-            if (chip8.delay_timer > 0) --chip8.delay_timer;
-            if (chip8.sound_timer > 0) --chip8.sound_timer;
+            if (chip8_32.delay_timer > 0) --chip8_32.delay_timer;
+            if (chip8_32.sound_timer > 0) --chip8_32.sound_timer;
             last_timer_update = current_time;
         }
 
         // 4. 화면 갱신 요청이 있으면 렌더링 수행
-        if (chip8.needs_redraw()) {
+        if (chip8_32.needs_redraw()) {
             int video_pitch = VIDEO_WIDTH * sizeof(uint32_t);
-            platform.Update(chip8.video, video_pitch);
-            chip8.clear_draw_flag();
+            platform.Update(chip8_32.video, video_pitch);
+            chip8_32.clear_draw_flag();
         }
-
+        
+        cycle_count++;
         // 5. (선택) CPU 속도 조절: 너무 빠른 실행 방지용 딜레이
         timer::delay(2); // 약 500Hz 실행
+        std::cout << "Cycle" << cycle_count << " completed" << std::endl;
     }
-
+    std::cout << "Stopped after" << cycle_count << " cycles" << std::endl;
+    std::cout << "32비트 CHIP-8 에뮬레이터 종료" << std::endl;
     return 0;
 }
