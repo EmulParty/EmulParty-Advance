@@ -1,15 +1,29 @@
+# 빌드 폴더 무시
+build/
+
 # 바이너리 파일 무시
 *.exe
-*.out
+*.dll
 *.o
+*.obj
+
+# Visual Studio 프로젝트 파일 무시
+*.vcxproj
+*.vcxproj.filters
+*.sln
+
+# CMake 생성 파일 무시
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
 
 # 개발 환경 관련 폴더 무시
 .vscode/
-.idea/
+.vs/
 
 # macOS 특유 파일
 .DS_Store
 
 # 백업 파일들
 *~
-
+*.tmp

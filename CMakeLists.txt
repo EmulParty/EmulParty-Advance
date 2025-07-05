@@ -1,30 +1,27 @@
 cmake_minimum_required(VERSION 3.10)
-project(chip8_emulator)
+project(EmulParty-Advance)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# SDL2 경로 수동 지정 (수동 설치 환경 대응)
-set(SDL2_INCLUDE_DIR "/usr/local/include/SDL2")
-set(SDL2_LIBRARY "/usr/local/lib/libSDL2.so")
+# SDL2 경로 설정
+set(SDL2_PATH "C:/SDL2/SDL2-2.24.0/x86_64-w64-mingw32")
 
-include_directories(${SDL2_INCLUDE_DIR})
-link_libraries(${SDL2_LIBRARY})
+# SDL2 + 프로젝트 헤더 포함 경로
+include_directories("${SDL2_PATH}/include")
+include_directories("${CMAKE_SOURCE_DIR}/include") 
+link_directories("${SDL2_PATH}/lib")
 
-# include 디렉토리 추가
-include_directories(include)
-include_directories(include/core)
-include_directories(include/platform)
+# SDL2 main() 정의 충돌 방지
+add_definitions(-DSDL_MAIN_HANDLED) 
 
-# 소스 파일 수집
-file(GLOB_RECURSE CORE_SRC src/core/*.cpp)
-file(GLOB_RECURSE PLATFORM_SRC src/platform/*.cpp)
-
-add_executable(chip8
-    ${CORE_SRC}
-    ${PLATFORM_SRC}
-    src/main.cpp
-)
+# 소스 파일 등록
+file(GLOB_RECURSE SOURCES "src/*.cpp")
+add_executable(EmulParty-Advance ${SOURCES})
 
 # SDL2 링크
-target_link_libraries(chip8 ${SDL2_LIBRARY})
+target_link_libraries(EmulParty-Advance SDL2 SDL2main)
 
+# Windows에서 필요한 추가 라이브러리들
+if(WIN32)
+    target_link_libraries(EmulParty-Advance mingw32)
+endif()

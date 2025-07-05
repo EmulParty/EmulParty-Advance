@@ -75,8 +75,8 @@ bool Chip8::load_rom(const char* filename) {
 
 // 하나의 사이클 수행: Fetch → Decode → Execute
 void Chip8::cycle() {
-    // 1. Fetch (pc가 가리키는 주소에서 2바이트(opcode)를 가져와서 하나의 명령어로 만듦)
-    opcode = (memory[pc] << 8) | memory[pc + 1];
+    // 1. Fetch (pc가 가리키는 주소에서 4바이트(opcode)를 가져와서 하나의 명령어로 만듦)
+    opcode = (memory[pc] << 24) | (memory[pc + 1] << 16) | (memory[pc + 2] << 8) | memory[pc + 3];
     // 2. Decode + Execute ( opcode를 보고 어떤 명령인지 해석 후, 해당 명령에 맞는 함수 실행)
     OpcodeTable::Execute(*this, opcode);
 }
@@ -102,7 +102,7 @@ uint8_t* Chip8::get_keypad() {
 }
 
 // 스택 접근
-uint16_t& Chip8::stack_at(uint8_t index) { 
+uint32_t& Chip8::stack_at(uint8_t index) { 
     return stack[index]; 
 }
 
