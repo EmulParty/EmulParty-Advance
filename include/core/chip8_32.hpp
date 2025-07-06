@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <cstddef>
 #include "common/constants.hpp"
+#include "timer.hpp"
+
 
 // CHIP-8 확장 버전은 우선 64KB 메모리를 사용합니다. 
 constexpr unsigned int MEMORY_SIZE_32 = 65536;
@@ -34,6 +36,8 @@ private:
     uint32_t opcode;                             // 현재 실행 중인 명령어 (4바이트)
 
     size_t loaded_rom_size; 
+
+    uint32_t last_timer_update = 0;
 
 public:
     Chip8_32(); // 생성자: 초기화 수행

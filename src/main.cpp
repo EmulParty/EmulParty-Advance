@@ -54,45 +54,47 @@ int main(int argc, char* argv[]) {
     // 메인 루프 종료 조건
     bool quit = false;
 
-    // 60Hz 타이머 조절을 위한 시간 기준값
-    uint32_t last_timer_update = timer::get_ticks();
-    const uint32_t timer_interval = 1000 / 60; // 60Hz = 16.67ms
-
     std::cout << "32비트 CHIP-8 에뮬레이터 실행 중..." << std::endl;
     std::cout << "메모리 크기: " << MEMORY_SIZE_32 << " 바이트 (64KB)" << std::endl;
     std::cout << "레지스터 개수: " << NUM_REGISTERS_32 << "개 (32비트)" << std::endl;
     std::cout << "스택 크기: " << STACK_SIZE_32 << "단계" << std::endl;
     
-    int cycle_count = 0;
-    // 메인 루프: 키 입력 → 명령 실행 → 타이머 업데이트 → 화면 출력
-    while (!quit && cycle_count < 20) {  //20 사이클만 수행
+   // 메인 루프: 키 입력 → 명령 실행 → 타이머 업데이트 → 화면 출력
+    while (!quit) {  //20 사이클만 수행
         // 1. 사용자 입력 처리 (종료 키 포함)
         quit = platform.ProcessInput(chip8_32.keypad);
 
         // 2. 하나의 명령어 사이클 수행 (Fetch → Decode → Execute)
         chip8_32.cycle();
 
-        // 3. 60Hz 타이머 값 감소 (Delay / Sound Timer)
-        uint32_t current_time = timer::get_ticks();
-        if (current_time - last_timer_update >= timer_interval) {
-            if (chip8_32.delay_timer > 0) --chip8_32.delay_timer;
-            if (chip8_32.sound_timer > 0) --chip8_32.sound_timer;
-            last_timer_update = current_time;
-        }
-
         // 4. 화면 갱신 요청이 있으면 렌더링 수행
         if (chip8_32.needs_redraw()) {
+            
+            // 비디오 버퍼 상태 확인
+            const auto& video = chip8_32.get_video();
+            int pixel_count = 0;
+            for (int i = 0; i < VIDEO_WIDTH * VIDEO_HEIGHT; ++i) {
+                if (video[i]) pixel_count++;
+            }
+            std::cout << "Active pixels: " << pixel_count << " / " << (VIDEO_WIDTH * VIDEO_HEIGHT) << std::endl;
+            
+            // 첫 몇 개 픽셀 상태 출력
+            std::cout << "First 64 pixels: ";
+            for (int i = 0; i < 64; ++i) {
+                std::cout << (video[i] ? "█" : "·");
+            }
+            std::cout << std::endl;
+            
             int video_pitch = VIDEO_WIDTH * sizeof(uint32_t);
             platform.Update(chip8_32.video, video_pitch);
             chip8_32.clear_draw_flag();
+            
+            std::cout << "Screen update completed." << std::endl;
         }
         
-        cycle_count++;
         // 5. (선택) CPU 속도 조절: 너무 빠른 실행 방지용 딜레이
         timer::delay(2); // 약 500Hz 실행
-        std::cout << "Cycle" << cycle_count << " completed" << std::endl;
     }
-    std::cout << "Stopped after" << cycle_count << " cycles" << std::endl;
     std::cout << "32비트 CHIP-8 에뮬레이터 종료" << std::endl;
     return 0;
 }

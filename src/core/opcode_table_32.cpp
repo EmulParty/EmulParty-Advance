@@ -66,16 +66,27 @@ namespace OpcodeTable_32 {
     /// @brief Rx == KKKK(상수)면 다음 명령어 건너뜀 (03XXKKKK)
     void OP_03XXKKKK(Chip8_32& chip8_32, uint32_t opcode) {
         uint8_t x = (opcode & 0x001F0000) >> 16;  // 레지스터 인덱스 (XX 필드)
-        
+    
         if (x >= 32) {
             std::cerr << "Register index out of bounds: " << static_cast<int>(x) << std::endl;
             chip8_32.set_pc(chip8_32.get_pc() + 4);
             return;
         }
-
+    
         uint16_t kk = opcode & 0x0000FFFF;        // 16비트 상수 (KKKK 필드)
-        chip8_32.set_pc(chip8_32.get_pc() + (chip8_32.get_R(x) == kk ? 8 : 4));
+        
+        // 💥 디버깅 로그 추가
+        std::cout << "[DEBUG] OP_03XXKKKK: R[" << static_cast<int>(x) << "]="
+                  << std::hex << chip8_32.get_R(x)
+                  << ", R[" << static_cast<int>(x) << "] & 0xFFFF="
+                  << (chip8_32.get_R(x) & 0xFFFF)
+                  << ", KK=" << kk
+                  << ", Equal=" << ((chip8_32.get_R(x) & 0xFFFF) == kk)
+                  << std::dec << std::endl;
+    
+        chip8_32.set_pc(chip8_32.get_pc() + ((chip8_32.get_R(x) & 0xFFFF) == kk ? 8 : 4));
     }
+    
 
     /// @brief Rx != KKKK (상수)면 다음 명령어 건너뜀 (04XXKKKK)
     void OP_04XXKKKK(Chip8_32& chip8_32, uint32_t opcode) {
@@ -174,11 +185,21 @@ namespace OpcodeTable_32 {
     }
 
     /// @brief 스프라이트 그리기 (0DXXYYNN)
+    /// @brief 스프라이트 그리기 (0DXXYYNN)
     void OP_0DXXYYNN(Chip8_32& chip8_32, uint32_t opcode) {
-        uint8_t x = chip8_32.get_R((opcode & 0x001F0000) >> 16) % VIDEO_WIDTH;   // 레지스터에서 X 좌표 (출력 화면 넘어갈 것을 대비)
-        uint8_t y = chip8_32.get_R((opcode & 0x00001F00) >> 8) % VIDEO_HEIGHT;  // 레지스터에서 Y 좌표
+        uint8_t reg_x = (opcode & 0x001F0000) >> 16;   // X 좌표 레지스터
+        uint8_t reg_y = (opcode & 0x00001F00) >> 8;    // Y 좌표 레지스터
+        uint8_t x = chip8_32.get_R(reg_x) % VIDEO_WIDTH;   // 레지스터에서 X 좌표
+        uint8_t y = chip8_32.get_R(reg_y) % VIDEO_HEIGHT;  // 레지스터에서 Y 좌표
         uint8_t height = opcode & 0x000000FF;
-        chip8_32.set_R(15, 0);  // 충돌 감지 플래그 (R31) 사용
+        
+        std::cout << "*** DRW COMMAND ***" << std::endl;
+        std::cout << "Drawing sprite at (" << static_cast<int>(x) << ", " << static_cast<int>(y) 
+                << ") height=" << static_cast<int>(height) << " from I=0x" << std::hex << chip8_32.get_I() << std::dec << std::endl;
+        
+        chip8_32.set_R(15, 0);  // 충돌 감지 플래그 (R15) 초기화
+        
+        bool any_pixel_drawn = false;
 
         for (int row = 0; row < height; ++row) {
             uint32_t addr = chip8_32.get_I() + row;
@@ -189,15 +210,29 @@ namespace OpcodeTable_32 {
                 break;
             }
 
-            uint8_t sprite = chip8_32.get_memory(chip8_32.get_I() + row);
+            uint8_t sprite = chip8_32.get_memory(addr);
+            std::cout << "Row " << row << ": sprite byte = 0x" << std::hex << static_cast<int>(sprite) << std::dec << " (";
+            for (int bit = 7; bit >= 0; bit--) {
+                std::cout << ((sprite & (1 << bit)) ? "1" : "0");
+            }
+            std::cout << ")" << std::endl;
+            
             for (int col = 0; col < 8; ++col) {
                 if (sprite & (0x80 >> col)) {
                     uint32_t index = ((y + row) % VIDEO_HEIGHT) * VIDEO_WIDTH + ((x + col) % VIDEO_WIDTH);
-                    if (chip8_32.get_video(index)) chip8_32.set_R(15, 1);  //충돌 감지
+                    if (chip8_32.get_video(index)) {
+                        chip8_32.set_R(15, 1);  //충돌 감지
+                    }
                     chip8_32.set_video(index, chip8_32.get_video(index) ^ 1);
+                    any_pixel_drawn = true;
+                    std::cout << "  Pixel drawn at (" << (x + col) << ", " << (y + row) << ") index=" << index << std::endl;
                 }
             }
         }
+        
+        std::cout << "Sprite drawing complete. Any pixels drawn: " << (any_pixel_drawn ? "YES" : "NO") << std::endl;
+        std::cout << "Setting draw_flag to TRUE" << std::endl;
+        
         chip8_32.set_draw_flag(true);
         chip8_32.set_pc(chip8_32.get_pc() + 4);
     }

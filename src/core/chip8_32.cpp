@@ -30,6 +30,7 @@ static const uint8_t chip8_fontset[80] = {
 // 생성자 : reset() 호출로 에뮬레이터 초기화
 Chip8_32::Chip8_32() {
     loaded_rom_size = 0;  // ← 추가
+    last_timer_update = 0;
     reset();
 }
 
@@ -110,7 +111,7 @@ bool Chip8_32::load_rom(const char* filename) {
 
     // 전체 메모리 덤프
     dump_memory(*this, 0x0200, 0x0200 + size);
-    
+    dump_memory(*this, 0x000, 0x050);  // 폰트셋 영역 확인
     return true;
 }
 
@@ -137,15 +138,26 @@ void Chip8_32::cycle() {
 
     // 2. Execute
     OpcodeTable_32::Execute(*this, opcode);
+    
+    // 3. 타이머 감소 (60Hz 기준으로)
+    uint32_t current_time = timer::get_ticks();
+    if (current_time - this->last_timer_update >= 16) { // 멤버 변수 사용!
+        if (delay_timer > 0) --delay_timer;
+        if (sound_timer > 0) --sound_timer;
+        this->last_timer_update = current_time;  // 멤버 변수 업데이트!
+    }
+
 }
 
 // 화면이 그려져야 하는지 여부를 외부에 알림
 bool Chip8_32::needs_redraw() const {
+    std::cout << "needs_redraw() called: draw_flag = " << (draw_flag ? "TRUE" : "FALSE") << std::endl;
     return draw_flag;
 }
 
 // 화면 플래그 초기화 (draw 완료됨)
 void Chip8_32::clear_draw_flag() {
+    std::cout << "clear_draw_flag() called: setting draw_flag to FALSE" << std::endl;
     draw_flag = false;
 }
 
