@@ -4,18 +4,13 @@
 #include <cstdint>
 #include "common/constants.hpp"
 
-// CHIP-8은 4KB 메모리를 사용합니다.
-constexpr unsigned int MEMORY_SIZE = 4096;
-
-// CHIP-8은 16개의 8비트 레지스터(V0~VF)를 사용합니다.
-constexpr unsigned int NUM_REGISTERS = 16;
-
-// CHIP-8은 최대 16단계의 서브루틴 호출 스택을 가집니다.
-constexpr unsigned int STACK_SIZE = 16;
+constexpr unsigned int MEMORY_SIZE = 16384;
+constexpr unsigned int NUM_REGISTERS = 32;
+constexpr unsigned int STACK_SIZE = 64;
 
 class Chip8 {
 public:
-    Chip8(); // 생성자: 초기화 수행
+Chip8(); // 생성자: 초기화 수행
 
     bool draw_flag; // 화면을 다시 그려야 하는 경우 true로 설정
 
@@ -38,25 +33,25 @@ public:
     uint8_t delay_timer;
     uint8_t sound_timer;
 
-    // 프로그램 카운터
-    uint16_t get_pc() const { return pc; }
-    void set_pc(uint16_t value) { pc = value; }
+    // 프로그램 카운터 (change)
+    uint32_t get_pc() const { return pc; }
+    void set_pc(uint32_t value) { pc = value; }
 
-    // V 레지스터 접근
-    uint8_t get_V(int index) const { return V.at(index); }
-    void set_V(int index, uint8_t value) { V.at(index) = value; }
+    // R 레지스터 접근 (change)
+    uint32_t get_R(int index) const { return R.at(index); }
+    void set_R(int index, uint32_t value) { R.at(index) = value; }
 
     // 메모리 접근
     uint8_t get_memory(int index) const { return memory.at(index); }
     void set_memory(int index, uint8_t value) { memory.at(index) = value; }
 
-    // 인덱스 레지스터 I
-    uint16_t get_I() const { return I; }
-    void set_I(uint16_t value) { I = value; }
+    // 인덱스 레지스터 I (change)
+    uint32_t get_I() const { return I; }
+    void set_I(uint32_t value) { I = value; }
 
-    // 스택
-    uint16_t get_stack(int index) const { return stack.at(index); }
-    void set_stack(int index, uint16_t value) { stack.at(index) = value; }
+    // 스택 (change)
+    uint32_t get_stack(int index) const { return stack.at(index); }
+    void set_stack(int index, uint32_t value) { stack.at(index) = value; }
 
     // 스택 포인터
     uint8_t get_sp() const { return sp; }
@@ -82,19 +77,19 @@ public:
     bool get_draw_flag() const { return draw_flag; }
     void set_draw_flag(bool value) { draw_flag = value; }
 
-    uint16_t& stack_at(uint8_t index); // 참조 리턴
+    uint32_t& stack_at(uint8_t index); // 참조 리턴 (change)
 
 private:
     std::array<uint8_t, MEMORY_SIZE> memory;     // 4KB 메모리
-    std::array<uint8_t, NUM_REGISTERS> V;        // 범용 레지스터 V0~VF
-    uint16_t I;                                  // 인덱스 레지스터 (메모리 주소)
-    uint16_t pc;                                 // 프로그램 카운터
+    std::array<uint32_t, NUM_REGISTERS> R;        // 범용 레지스터 R0~R31 (change)
+    uint32_t I;                                  // 인덱스 레지스터 (메모리 주소)
+    uint32_t pc;                                 // 프로그램 카운터
 
-    std::array<uint16_t, STACK_SIZE> stack;      // 스택 (CALL/RET 용)
+    std::array<uint32_t, STACK_SIZE> stack;      // 스택 (CALL/RET 용) (change)
     uint8_t sp;                                  // 스택 포인터
 
-    uint16_t opcode;                             // 현재 실행 중인 명령어 (2바이트)
+    uint32_t opcode;                             // 현재 실행 중인 명령어 (4바이트) (change)
 
-    // 내부 함수: opcode 처리기 (Cycle 내부에서 호출)
-    void ExecuteOpcode(uint16_t opcode);
+    // 내부 함수: opcode 처리기 (Cycle 내부에서 호출) (change)
+    void ExecuteOpcode(uint32_t opcode);
 };

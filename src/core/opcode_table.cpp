@@ -13,71 +13,73 @@ namespace OpcodeTable {
     // 16개의 주요 명령 그룹(상위 4비트로 구분)을 처리하기 위한 함수 테이블
     std::array<OpcodeTable::OpcodeHandler, 16> primary_table;
 
-    /// @brief 화면을 지우는 명령 (00E0)
-    void OP_00E0(Chip8& chip8, uint16_t) {
+// 0x0 - CLS, RET 등 시스템 명령어 (하위 16비트 기준)
+    void OP_00E0(Chip8& chip8, uint32_t) {
         chip8.get_video().fill(0);
         chip8.set_draw_flag(true);
-        chip8.set_pc(chip8.get_pc() + 2);
+        chip8.set_pc(chip8.get_pc() + 4);
     }
 
-    /// @brief 서브루틴 반환 명령 (00EE)
-    void OP_00EE(Chip8& chip8, uint16_t) {
+    void OP_00EE(Chip8& chip8, uint32_t) {
         chip8.set_sp(chip8.get_sp() - 1);
-        chip8.set_pc(chip8.stack_at(chip8.get_sp()) + 2);
+        chip8.set_pc(chip8.stack_at(chip8.get_sp()) + 4);
     }
 
-    /// @brief 절대 주소로 점프 (1NNN)
-    void OP_1NNN(Chip8& chip8, uint16_t opcode) {
-        chip8.set_pc(opcode & 0x0FFF);
+    // 1NNN - JP addr (하위 16비트 주소)
+    void OP_01NNNN(Chip8& chip8, uint32_t opcode) {
+        chip8.set_pc(opcode & 0x0000FFFF);
     }
 
-    /// @brief 서브루틴 호출 (2NNN)
-    void OP_2NNN(Chip8& chip8, uint16_t opcode) {
+    // 2NNN - CALL addr (하위 16비트 주소)
+    void OP_02NNNN(Chip8& chip8, uint32_t opcode) {
         chip8.stack_at(chip8.get_sp()) = chip8.get_pc();
         chip8.set_sp(chip8.get_sp() + 1);
-        chip8.set_pc(opcode & 0x0FFF);
+        chip8.set_pc(opcode & 0x0000FFFF);
     }
 
-    /// @brief Vx가 NN과 같으면 다음 명령어 건너뜀 (3XNN)
-    void OP_3XNN(Chip8& chip8, uint16_t opcode) {
-        uint8_t x = (opcode & 0x0F00) >> 8;
-        uint8_t nn = opcode & 0x00FF;
-        chip8.set_pc(chip8.get_pc() + (chip8.get_V(x) == nn ? 4 : 2));
+    // 3XKK - SE Vx, byte (하위 16비트 상수)
+    void OP_03XKKKK(Chip8& chip8, uint32_t opcode) {
+        uint8_t x = (opcode >> 24) & 0xF;
+        uint16_t kkkk = opcode & 0x0000FFFF;
+        chip8.set_pc(chip8.get_pc() + (chip8.get_V(x) == kkkk ? 8 : 4));
     }
 
-    /// @brief Vx가 NN과 다르면 다음 명령어 건너뜀 (4XNN)
-    void OP_4XNN(Chip8& chip8, uint16_t opcode) {
-        uint8_t x = (opcode & 0x0F00) >> 8;
-        uint8_t nn = opcode & 0x00FF;
-        chip8.set_pc(chip8.get_pc() + (chip8.get_V(x) != nn ? 4 : 2));
+    // 4XKK - SNE Vx, byte
+    void OP_04XKKKK(Chip8& chip8, uint32_t opcode) {
+        uint8_t x = (opcode >> 24) & 0xF;
+        uint16_t kkkk = opcode & 0x0000FFFF;
+        chip8.set_pc(chip8.get_pc() + (chip8.get_V(x) != kkkk ? 8 : 4));
     }
 
-    /// @brief Vx == Vy면 다음 명령어 건너뜀 (5XY0)
-    void OP_5XY0(Chip8& chip8, uint16_t opcode) {
-        uint8_t x = (opcode & 0x0F00) >> 8;
-        uint8_t y = (opcode & 0x00F0) >> 4;
-        chip8.set_pc(chip8.get_pc() + ((opcode & 0x000F) == 0 && chip8.get_V(x) == chip8.get_V(y) ? 4 : 2));
+    // 5XY0 - SE Vx, Vy
+    void OP_05XY00(Chip8& chip8, uint32_t opcode) {
+        uint8_t x = (opcode >> 24) & 0xF;
+        uint8_t y = (opcode >> 20) & 0xF;
+        chip8.set_pc(chip8.get_pc() + ((chip8.get_V(x) == chip8.get_V(y)) ? 8 : 4));
     }
 
-    /// @brief Vx에 NN 저장 (6XNN)
-    void OP_6XNN(Chip8& chip8, uint16_t opcode) {
-        uint8_t x = (opcode & 0x0F00) >> 8;
-        chip8.set_V(x, opcode & 0x00FF);
-        chip8.set_pc(chip8.get_pc() + 2);
+    // 6XKK - LD Vx, byte
+    void OP_06XKKKK(Chip8& chip8, uint32_t opcode) {
+        uint8_t x = (opcode >> 24) & 0xF;
+        uint16_t kkkk = opcode & 0x0000FFFF;
+        chip8.set_V(x, kkkk);
+        chip8.set_pc(chip8.get_pc() + 4);
     }
 
-    /// @brief Vx에 NN 더하기 (7XNN)
-    void OP_7XNN(Chip8& chip8, uint16_t opcode) {
-        uint8_t x = (opcode & 0x0F00) >> 8;
-        chip8.set_V(x, chip8.get_V(x) + (opcode & 0x00FF));
-        chip8.set_pc(chip8.get_pc() + 2);
+    // 7XKK - ADD Vx, byte
+    void OP_07XKKKK(Chip8& chip8, uint32_t opcode) {
+        uint8_t x = (opcode >> 24) & 0xF;
+        uint16_t kkkk = opcode & 0x0000FFFF;
+        chip8.set_V(x, chip8.get_V(x) + kkkk);
+        chip8.set_pc(chip8.get_pc() + 4);
     }
 
-    /// @brief Vx와 Vy 간 다양한 연산 수행 (8XYN)
-    void OP_8XYN(Chip8& chip8, uint16_t opcode) {
-        uint8_t x = (opcode & 0x0F00) >> 8;
-        uint8_t y = (opcode & 0x00F0) >> 4;
-        uint8_t n = opcode & 0x000F;
+    // 8XYN - 산술/논리 연산 (nibble)
+    void OP_08XYN(Chip8& chip8, uint32_t opcode) {
+        uint8_t x = (opcode >> 24) & 0xF;
+        uint8_t y = (opcode >> 20) & 0xF;
+        uint8_t n = opcode & 0xF;
+
         uint8_t vx = chip8.get_V(x);
         uint8_t vy = chip8.get_V(y);
 
@@ -88,61 +90,65 @@ namespace OpcodeTable {
             case 0x3: chip8.set_V(x, vx ^ vy); break;
             case 0x4: {
                 uint16_t sum = vx + vy;
-                chip8.set_V(0xF, sum > 0xFF);  // carry flag
+                chip8.set_V(0xF, sum > 0xFF);
                 chip8.set_V(x, sum & 0xFF);
                 break;
             }
             case 0x5:
-                chip8.set_V(0xF, vx > vy);  // borrow flag
+                chip8.set_V(0xF, vx > vy);
                 chip8.set_V(x, vx - vy);
                 break;
             case 0x6:
-                chip8.set_V(0xF, vx & 0x1);  // LSB 저장
+                chip8.set_V(0xF, vx & 0x1);
                 chip8.set_V(x, vx >> 1);
                 break;
             case 0x7:
-                chip8.set_V(0xF, vy > vx);  // borrow flag
+                chip8.set_V(0xF, vy > vx);
                 chip8.set_V(x, vy - vx);
                 break;
             case 0xE:
-                chip8.set_V(0xF, (vx & 0x80) >> 7);  // MSB 저장
+                chip8.set_V(0xF, (vx & 0x80) >> 7);
                 chip8.set_V(x, vx << 1);
                 break;
+            default:
+                std::cerr << "Unknown 0x08 opcode nibble: " << std::hex << (int)n << std::endl;
+                break;
         }
-        chip8.set_pc(chip8.get_pc() + 2);
+        chip8.set_pc(chip8.get_pc() + 4);
     }
 
-    /// @brief Vx != Vy면 다음 명령어 건너뜀 (9XY0)
-    void OP_9XY0(Chip8& chip8, uint16_t opcode) {
-        uint8_t x = (opcode & 0x0F00) >> 8;
-        uint8_t y = (opcode & 0x00F0) >> 4;
-        chip8.set_pc(chip8.get_pc() + ((opcode & 0x000F) == 0 && chip8.get_V(x) != chip8.get_V(y) ? 4 : 2));
+    // 9XY0 - SNE Vx, Vy
+    void OP_09XY00(Chip8& chip8, uint32_t opcode) {
+        uint8_t x = (opcode >> 24) & 0xF;
+        uint8_t y = (opcode >> 20) & 0xF;
+        chip8.set_pc(chip8.get_pc() + ((chip8.get_V(x) != chip8.get_V(y)) ? 8 : 4));
     }
 
-    /// @brief I에 NNN 저장 (ANNN)
-    void OP_ANNN(Chip8& chip8, uint16_t opcode) {
-        chip8.set_I(opcode & 0x0FFF);
-        chip8.set_pc(chip8.get_pc() + 2);
+    // ANNN - LD I, addr
+    void OP_0ANNNN(Chip8& chip8, uint32_t opcode) {
+        chip8.set_I(opcode & 0x0000FFFF);
+        chip8.set_pc(chip8.get_pc() + 4);
     }
 
-    /// @brief PC = NNN + V0 (BNNN)
-    void OP_BNNN(Chip8& chip8, uint16_t opcode) {
-        chip8.set_pc((opcode & 0x0FFF) + chip8.get_V(0));
+    // BNNN - JP V0, addr
+    void OP_0BNNNN(Chip8& chip8, uint32_t opcode) {
+        chip8.set_pc((opcode & 0x0000FFFF) + chip8.get_V(0));
     }
 
-    /// @brief Vx에 rand() & NN 저장 (CXNN)
-    void OP_CXNN(Chip8& chip8, uint16_t opcode) {
-        uint8_t x = (opcode & 0x0F00) >> 8;
-        chip8.set_V(x, (rand() % 256) & (opcode & 0x00FF));
-        chip8.set_pc(chip8.get_pc() + 2);
+    // CXKK - RND Vx, byte
+    void OP_0CXKKKK(Chip8& chip8, uint32_t opcode) {
+        uint8_t x = (opcode >> 24) & 0xF;
+        uint16_t kkkk = opcode & 0x0000FFFF;
+        chip8.set_V(x, (rand() % 65536) & kkkk);
+        chip8.set_pc(chip8.get_pc() + 4);
     }
 
-    /// @brief 스프라이트 그리기 (DXYN)
-    void OP_DXYN(Chip8& chip8, uint16_t opcode) {
-        uint8_t x = chip8.get_V((opcode & 0x0F00) >> 8);
-        uint8_t y = chip8.get_V((opcode & 0x00F0) >> 4);
-        uint8_t height = opcode & 0x000F;
-        chip8.set_V(0xF, 0);  // 충돌 감지 플래그
+    // DXYN - DRW Vx, Vy, nibble
+    void OP_0DXYN(Chip8& chip8, uint32_t opcode) {
+        uint8_t x = chip8.get_V((opcode >> 24) & 0xF);
+        uint8_t y = chip8.get_V((opcode >> 20) & 0xF);
+        uint8_t height = opcode & 0xF;
+        chip8.set_V(0xF, 0);
 
         for (int row = 0; row < height; ++row) {
             uint8_t sprite = chip8.get_memory(chip8.get_I() + row);
@@ -155,103 +161,106 @@ namespace OpcodeTable {
             }
         }
         chip8.set_draw_flag(true);
-        chip8.set_pc(chip8.get_pc() + 2);
+        chip8.set_pc(chip8.get_pc() + 4);
     }
 
-    /// @brief 키 입력 조건 분기 (EX9E, EXA1)
-    void OP_EX(Chip8& chip8, uint16_t opcode) {
-        uint8_t x = (opcode & 0x0F00) >> 8;
-        uint8_t key = chip8.get_V(x);
-        if ((opcode & 0x00FF) == 0x9E)
-            chip8.set_pc(chip8.get_pc() + (chip8.get_key(key) ? 4 : 2));
-        else if ((opcode & 0x00FF) == 0xA1)
-            chip8.set_pc(chip8.get_pc() + (!chip8.get_key(key) ? 4 : 2));
+    // EX9E, EXA1 - SKP, SKNP Vx
+    void OP_0EXXXX(Chip8& chip8, uint32_t opcode) {
+        uint8_t x = (opcode >> 24) & 0xF;
+        uint16_t subcode = opcode & 0x0000FFFF;
+        if (subcode == 0x009E)
+            chip8.set_pc(chip8.get_pc() + (chip8.get_key(chip8.get_V(x)) ? 8 : 4));
+        else if (subcode == 0x00A1)
+            chip8.set_pc(chip8.get_pc() + (!chip8.get_key(chip8.get_V(x)) ? 8 : 4));
         else
-            chip8.set_pc(chip8.get_pc() + 2);
+            chip8.set_pc(chip8.get_pc() + 4);
     }
 
-    /// @brief Fx 계열 확장 명령들 처리
-    void OP_FX(Chip8& chip8, uint16_t opcode) {
-        uint8_t x = (opcode & 0x0F00) >> 8;
-        uint8_t nn = opcode & 0x00FF;
-        switch (nn) {
-            case 0x07: chip8.set_V(x, chip8.get_delay_timer()); break;
-            case 0x0A: {
+    // FX - 여러 시스템 명령
+    void OP_0FXXXX(Chip8& chip8, uint32_t opcode) {
+        uint8_t x = (opcode >> 24) & 0xF;
+        uint16_t subcode = opcode & 0x0000FFFF;
+
+        switch (subcode) {
+            case 0x0007: chip8.set_V(x, chip8.get_delay_timer()); break;
+            case 0x000A: {
                 for (int i = 0; i < 16; ++i) {
                     if (chip8.get_key(i)) {
                         chip8.set_V(x, i);
-                        chip8.set_pc(chip8.get_pc() + 2);
+                        chip8.set_pc(chip8.get_pc() + 4);
                         return;
                     }
                 }
-                return;  // 키가 눌릴 때까지 대기
+                return; // 키 입력 대기, PC 증분 없음
             }
-            case 0x15: chip8.set_delay_timer(chip8.get_V(x)); break;
-            case 0x18: chip8.set_sound_timer(chip8.get_V(x)); break;
-            case 0x1E: chip8.set_I(chip8.get_I() + chip8.get_V(x)); break;
-            case 0x29: chip8.set_I(chip8.get_V(x) * 5); break;  // 폰트 주소
-            case 0x33: {  // BCD 변환
+            case 0x0105: chip8.set_delay_timer(chip8.get_V(x)); break;
+            case 0x0108: chip8.set_sound_timer(chip8.get_V(x)); break;
+            case 0x010E: chip8.set_I(chip8.get_I() + chip8.get_V(x)); break;
+            case 0x0209: chip8.set_I(chip8.get_V(x) * 5); break;
+            case 0x0303: {
                 uint8_t vx = chip8.get_V(x);
                 chip8.set_memory(chip8.get_I(), vx / 100);
                 chip8.set_memory(chip8.get_I() + 1, (vx / 10) % 10);
                 chip8.set_memory(chip8.get_I() + 2, vx % 10);
                 break;
             }
-            case 0x55:
+            case 0x0505:
                 for (int i = 0; i <= x; ++i)
                     chip8.set_memory(chip8.get_I() + i, chip8.get_V(i));
                 break;
-            case 0x65:
+            case 0x0605:
                 for (int i = 0; i <= x; ++i)
                     chip8.set_V(i, chip8.get_memory(chip8.get_I() + i));
                 break;
+            default:
+                std::cerr << "Unknown 0x0F opcode: " << std::hex << subcode << std::endl;
+                break;
         }
-        chip8.set_pc(chip8.get_pc() + 2);
+        chip8.set_pc(chip8.get_pc() + 4);
     }
 
-    /// @brief opcode 상위 4비트 기반으로 핸들러 함수 등록
     void Initialize() {
         primary_table.fill(nullptr);
 
-        primary_table[0x0] = [](Chip8& chip8, uint16_t opcode) {
-            switch (opcode & 0x00FF) {
-                case 0xE0: OP_00E0(chip8, opcode); break;
-                case 0xEE: OP_00EE(chip8, opcode); break;
+        primary_table[0x0] = [](Chip8& chip8, uint32_t opcode) {
+            uint16_t subcode = opcode & 0x0000FFFF;
+            switch (subcode) {
+                case 0x00E0: OP_00E0(chip8, opcode); break;
+                case 0x00EE: OP_00EE(chip8, opcode); break;
                 default:
                     std::cerr << "Unknown 0x0 opcode: " << std::hex << opcode << "\n";
-                    chip8.set_pc(chip8.get_pc() + 2);
+                    chip8.set_pc(chip8.get_pc() + 4);
                     break;
             }
         };
 
-        primary_table[0x1] = OP_1NNN;
-        primary_table[0x2] = OP_2NNN;
-        primary_table[0x3] = OP_3XNN;
-        primary_table[0x4] = OP_4XNN;
-        primary_table[0x5] = OP_5XY0;
-        primary_table[0x6] = OP_6XNN;
-        primary_table[0x7] = OP_7XNN;
-        primary_table[0x8] = OP_8XYN;
-        primary_table[0x9] = OP_9XY0;
-        primary_table[0xA] = OP_ANNN;
-        primary_table[0xB] = OP_BNNN;
-        primary_table[0xC] = OP_CXNN;
-        primary_table[0xD] = OP_DXYN;
-        primary_table[0xE] = OP_EX;
-        primary_table[0xF] = OP_FX;
+        primary_table[0x1] = OP_01NNNN;
+        primary_table[0x2] = OP_02NNNN;
+        primary_table[0x3] = OP_03XKKKK;
+        primary_table[0x4] = OP_04XKKKK;
+        primary_table[0x5] = OP_05XY00;
+        primary_table[0x6] = OP_06XKKKK;
+        primary_table[0x7] = OP_07XKKKK;
+        primary_table[0x8] = OP_08XYN;
+        primary_table[0x9] = OP_09XY00;
+        primary_table[0xA] = OP_0ANNNN;
+        primary_table[0xB] = OP_0BNNNN;
+        primary_table[0xC] = OP_0CXKKKK;
+        primary_table[0xD] = OP_0DXYN;
+        primary_table[0xE] = OP_0EXXXX;
+        primary_table[0xF] = OP_0FXXXX;
     }
 
-    /// @brief opcode를 상위 4비트로 분기하여 실행
-    void Execute(Chip8& chip8, uint16_t opcode) {
-        uint8_t index = (opcode & 0xF000) >> 12;
-        OpcodeTable::OpcodeHandler handler = primary_table[index];
+    void Execute(Chip8& chip8, uint32_t opcode) {
+        uint8_t index = (opcode >> 28) & 0xF;
+        OpcodeHandler handler = primary_table[index];
 
         if (handler)
             handler(chip8, opcode);
         else {
             std::cerr << "Unknown opcode: " << std::hex << opcode << "\n";
-            chip8.set_pc(chip8.get_pc() + 2);
+            chip8.set_pc(chip8.get_pc() + 4);
         }
     }
 
-} // namespace opcode_table
+} // namespace OpcodeTable
