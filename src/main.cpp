@@ -60,41 +60,31 @@ int main(int argc, char* argv[]) {
     std::cout << "스택 크기: " << STACK_SIZE_32 << "단계" << std::endl;
     
    // 메인 루프: 키 입력 → 명령 실행 → 타이머 업데이트 → 화면 출력
-    while (!quit) {  //20 사이클만 수행
-        // 1. 사용자 입력 처리 (종료 키 포함)
-        quit = platform.ProcessInput(chip8_32.keypad);
+   while (!quit) {
+    quit = platform.ProcessInput(chip8_32.keypad);
 
-        // 2. 하나의 명령어 사이클 수행 (Fetch → Decode → Execute)
-        chip8_32.cycle();
+    chip8_32.cycle();
 
-        // 4. 화면 갱신 요청이 있으면 렌더링 수행
-        if (chip8_32.needs_redraw()) {
-            
-            // 비디오 버퍼 상태 확인
-            const auto& video = chip8_32.get_video();
-            int pixel_count = 0;
-            for (int i = 0; i < VIDEO_WIDTH * VIDEO_HEIGHT; ++i) {
-                if (video[i]) pixel_count++;
-            }
-            std::cout << "Active pixels: " << pixel_count << " / " << (VIDEO_WIDTH * VIDEO_HEIGHT) << std::endl;
-            
-            // 첫 몇 개 픽셀 상태 출력
-            std::cout << "First 64 pixels: ";
-            for (int i = 0; i < 64; ++i) {
-                std::cout << (video[i] ? "█" : "·");
-            }
-            std::cout << std::endl;
-            
-            int video_pitch = VIDEO_WIDTH * sizeof(uint32_t);
-            platform.Update(chip8_32.video, video_pitch);
-            chip8_32.clear_draw_flag();
-            
-            std::cout << "Screen update completed." << std::endl;
-        }
-        
-        // 5. (선택) CPU 속도 조절: 너무 빠른 실행 방지용 딜레이
-        timer::delay(2); // 약 500Hz 실행
+    // 디버깅 출력
+    std::cout << "PC:  0x" << std::hex << chip8_32.get_pc() << std::endl;
+    std::cout << "I:   0x" << std::hex << chip8_32.get_I() << std::endl;
+    std::cout << "SP:  0x" << std::hex << (int)chip8_32.get_sp() << std::endl;
+    std::cout << "DT:  " << std::dec << (int)chip8_32.get_delay_timer()
+              << "  ST: " << (int)chip8_32.get_sound_timer() << std::endl;
+
+    for (int i = 0; i < NUM_REGISTERS_32; ++i) {
+        std::cout << "R[" << i << "]: 0x" << std::hex << chip8_32.get_R(i) << "  ";
+        if ((i + 1) % 4 == 0) std::cout << std::endl;
     }
+
+    if (chip8_32.needs_redraw()) {
+        platform.Update(chip8_32.video, VIDEO_WIDTH * sizeof(uint32_t));
+        chip8_32.clear_draw_flag();
+    }
+
+    timer::delay(2);
+}
+
     std::cout << "32비트 CHIP-8 에뮬레이터 종료" << std::endl;
     return 0;
 }

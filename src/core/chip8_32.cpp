@@ -52,25 +52,14 @@ void Chip8_32::reset() {
     sound_timer = 0;
 
     // 메모리 0x000~0x050에 폰트셋 복사
-    std::memcpy(memory.data(), chip8_fontset, sizeof(chip8_fontset));
+    std::memcpy(memory.data() + 0x50, chip8_fontset, sizeof(chip8_fontset));
 
     draw_flag = false;  // 화면 다시 그릴 필요 없음
 
     std::cout << "32-bit CHIP-8 system reset complete" << std::endl;
 }
 
-void dump_memory(const Chip8_32& chip8_32, uint32_t start = 0x0200, uint32_t end = 0xFFFF) {
-    printf("\n=== Full Memory Dump (0x%04X ~ 0x%04X) ===\n", start, end);
-    for (uint32_t addr = start; addr <= end; addr += 16) {
-        printf("0x%04X: ", addr);
-        for (int i = 0; i < 16; ++i) {
-            if (addr + i <= end) {
-                printf("%02X ", chip8_32.get_memory(addr + i));
-            }
-        }
-        printf("\n");
-    }
-}
+
 
 // ROM 파일을 메모리에 로드 (0x200부터)
 bool Chip8_32::load_rom(const char* filename) {
@@ -109,9 +98,7 @@ bool Chip8_32::load_rom(const char* filename) {
     std::cout << "Loaded ROM: " << filename << " (" << size << " bytes)" << std::endl;
     std::cout << "Available memory space: " << (MEMORY_SIZE_32 - 0x200) << " bytes" << std::endl;
 
-    // 전체 메모리 덤프
-    dump_memory(*this, 0x0200, 0x0200 + size);
-    dump_memory(*this, 0x000, 0x050);  // 폰트셋 영역 확인
+
     return true;
 }
 
@@ -132,9 +119,6 @@ void Chip8_32::cycle() {
              (static_cast<uint32_t>(memory[pc + 2]) << 8) |
              static_cast<uint32_t>(memory[pc + 3]);
     
-    // 올바른 디버깅 출력 (leading zero 포함)
-    printf("PC: 0x%04X Opcode: 0x%08X [%02X %02X %02X %02X]\n", 
-        pc, opcode, memory[pc], memory[pc+1], memory[pc+2], memory[pc+3]);
 
     // 2. Execute
     OpcodeTable_32::Execute(*this, opcode);
@@ -147,17 +131,34 @@ void Chip8_32::cycle() {
         this->last_timer_update = current_time;  // 멤버 변수 업데이트!
     }
 
+    // ===== [DEBUG] 매 30사이클마다 레지스터, PC, I, SP, 타이머 상태 출력 =====
+    static int debug_cycle_count = 0;
+    debug_cycle_count++;
+
+    if (debug_cycle_count % 30 == 0) {
+        std::cout << "\n=== [DEBUG] Cycle " << debug_cycle_count << " ===" << std::endl;
+        printf("PC:  0x%04X\n", pc);
+        printf("I:   0x%08X\n", I);
+        printf("SP:  0x%02X\n", sp);
+        printf("DT:  %u  ST: %u\n", delay_timer, sound_timer);
+
+        // 레지스터 덤프
+        for (int i = 0; i < 32; ++i) {
+            printf("R[%02d]: 0x%08X  ", i, R[i]);
+            if ((i + 1) % 4 == 0) printf("\n"); // 4개씩 출력
+        }
+
+    }
 }
+
 
 // 화면이 그려져야 하는지 여부를 외부에 알림
 bool Chip8_32::needs_redraw() const {
-    std::cout << "needs_redraw() called: draw_flag = " << (draw_flag ? "TRUE" : "FALSE") << std::endl;
     return draw_flag;
 }
 
 // 화면 플래그 초기화 (draw 완료됨)
 void Chip8_32::clear_draw_flag() {
-    std::cout << "clear_draw_flag() called: setting draw_flag to FALSE" << std::endl;
     draw_flag = false;
 }
 

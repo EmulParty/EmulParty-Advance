@@ -23,14 +23,9 @@ bool Platform::Initialize() {
     std::cout << "[INFO] SDL Video Driver: " << (driver ? driver : "NULL") << std::endl;
 
     // 창 생성
-    window_ = SDL_CreateWindow(
-        "CHIP-8 Emulator (WSL2)",
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        window_width_,
-        window_height_,
-        SDL_WINDOW_SHOWN
-    );
+    window_ = SDL_CreateWindow("CHIP-8 Emulator", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+        VIDEO_WIDTH * SCALE, VIDEO_HEIGHT * SCALE, SDL_WINDOW_SHOWN);
+
     if (!window_) {
         std::cerr << "[ERROR] SDL_CreateWindow failed: " << SDL_GetError() << std::endl;
         exit(1);
@@ -99,7 +94,10 @@ void Platform::Update(const std::array<uint8_t, VIDEO_WIDTH * VIDEO_HEIGHT>& vid
         pixels[i] = video[i] ? 0xFFFFFFFF : 0x00000000;
     }
 
-    SDL_UpdateTexture(texture_, nullptr, pixels, pitch);
+    // pitch 계산을 여기서 직접 하기
+    int actual_pitch = VIDEO_WIDTH * sizeof(uint32_t);
+    SDL_UpdateTexture(texture_, nullptr, pixels, actual_pitch);
+    
     SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
     SDL_RenderClear(renderer_);
     SDL_RenderCopy(renderer_, texture_, nullptr, nullptr);
