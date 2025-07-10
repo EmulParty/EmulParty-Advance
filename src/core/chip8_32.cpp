@@ -91,9 +91,11 @@ void Chip8_32::cycle() {
         return;
     }
 
+    // 1. Fetch : 현재 pc 위치에서 4바이트 명령어를 읽음
     opcode = (memory[pc] << 24) | (memory[pc + 1] << 16) |
              (memory[pc + 2] << 8) | memory[pc + 3];
 
+    // 2. Decode & Execute : opcode 테이블을 통해 명령어 실행
     OpcodeTable_32::Execute(*this, opcode);
 
     uint32_t current_time = timer::get_ticks();
