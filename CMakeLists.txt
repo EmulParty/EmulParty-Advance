@@ -13,6 +13,7 @@ include_directories(include)
 include_directories(include/common)
 include_directories(include/core)
 include_directories(include/platform)
+include_directories(include/debugger)  # 디버거 헤더 경로 추가
 include_directories(${SDL2_INCLUDE_DIR})
 
 # 소스 파일들 명시적으로 지정 (GLOB_RECURSE 대신 명확하게)
@@ -29,6 +30,11 @@ set(PLATFORM_SOURCES
     src/platform/timer.cpp
 )
 
+# 디버거 소스 (올바른 경로로 수정)
+set(DEBUGGER_SOURCES
+    src/debugger/debugger.cpp
+)
+
 set(MAIN_SOURCE
     src/main.cpp
 )
@@ -37,6 +43,7 @@ set(MAIN_SOURCE
 add_executable(chip8_dual
     ${CORE_SOURCES}
     ${PLATFORM_SOURCES}
+    ${DEBUGGER_SOURCES}  
     ${MAIN_SOURCE}
 )
 
@@ -54,6 +61,7 @@ message(STATUS "SDL2 Include: ${SDL2_INCLUDE_DIR}")
 message(STATUS "SDL2 Library: ${SDL2_LIBRARY}")
 message(STATUS "Core Sources: ${CORE_SOURCES}")
 message(STATUS "Platform Sources: ${PLATFORM_SOURCES}")
+message(STATUS "Debugger Sources: ${DEBUGGER_SOURCES}")  # 디버거 소스 정보 추가
 message(STATUS "Executable: chip8_dual")
 message(STATUS "=====================================================")
 
@@ -63,6 +71,7 @@ add_custom_target(usage
     COMMAND echo "=== Usage Examples ==="
     COMMAND echo "8-bit mode:  ./chip8_dual roms/game.ch8"
     COMMAND echo "32-bit mode: ./chip8_dual roms/demo.ch32"
+    COMMAND echo "Debug mode:  ./chip8_dual --debug roms/game.ch8"
     COMMAND echo "======================"
     COMMAND echo ""
 )

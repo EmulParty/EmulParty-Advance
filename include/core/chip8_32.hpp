@@ -108,5 +108,7 @@ public:
     void set_draw_flag(bool value) { draw_flag = value; }
 
     uint32_t& stack_at(uint8_t index); // 참조 리턴
-
+    uint32_t getCurrentOpcode() const {
+        return opcode;
+    }
 };
