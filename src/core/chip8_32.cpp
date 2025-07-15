@@ -35,7 +35,7 @@ Chip8_32::Chip8_32() {
 }
 
 void Chip8_32::reset() {
-    pc = 0x200;  // 프로그램 시작 주소
+    pc = 0x000;  // 부트로더부터 시작!
     opcode = 0;
     I = 0;
     sp = 0;
@@ -49,10 +49,40 @@ void Chip8_32::reset() {
     delay_timer = 0;
     sound_timer = 0;
 
+    // 부트로더 로드 (0x000 ~ 0x04F)
+    LoadBuiltinFileManager();
+
     std::memcpy(memory.data() + 0x50, chip8_fontset, sizeof(chip8_fontset));
     draw_flag = false;
 
     std::cout << "32-bit CHIP-8 system reset complete" << std::endl;
+}
+
+// chip8_32.cpp 파일에 추가할 LoadBuiltinFileManager 함수
+void Chip8_32::LoadBuiltinFileManager() {
+    // FILE_MANAGER 부트로더 코드 (80바이트, 20개 명령어)
+    static const uint32_t boot_rom[20] = {
+        0x0A000000, 0x12000050, 0x0A000001, 0x12000060, 0x0A000002, 0x12000070,
+        0x0A000003, 0x12000080, 0x0A000004, 0x12000090, 0x0A000005, 0x120000A0,
+        0x0A000006, 0x120000B0, 0x0A000007, 0x120000C0, 0x0A000008, 0x120000D0,
+        0x0A000009, 0x120000E0
+    };
+
+    std::cout << "[BOOT] Loading built-in FILE_MANAGER..." << std::endl;
+    std::cout << "[BOOT] FILE_MANAGER loaded (80 bytes at 0x000-0x04F)" << std::endl;
+    std::cout << "[BOOT] Prompt message at 0xA0: \"Enter filename: \"" << std::endl;
+    std::cout << "[BOOT] Input buffer at 0xC0 (64 bytes)" << std::endl;
+    std::cout << "[BOOT] Font data at 0x050-0x09F" << std::endl;
+    std::cout << "[BOOT] Game ROM area: 0x200-0xFFFF" << std::endl;
+    std::cout << "[BOOT] Ready to boot from 0x000!" << std::endl;
+
+    // 안전하게 20개 명령어 로드
+    for(int i = 0; i < 20; ++i) {
+        memory[0x000 + i*4 + 0] = (boot_rom[i] >> 24) & 0xFF;
+        memory[0x000 + i*4 + 1] = (boot_rom[i] >> 16) & 0xFF;
+        memory[0x000 + i*4 + 2] = (boot_rom[i] >> 8) & 0xFF;
+        memory[0x000 + i*4 + 3] = boot_rom[i] & 0xFF;
+    }
 }
 
 bool Chip8_32::load_rom(const char* filename) {

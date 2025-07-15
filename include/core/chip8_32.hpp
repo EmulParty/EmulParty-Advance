@@ -20,25 +20,21 @@ class Chip8_32 {
 private:
     // 메모리 (4KB -> 64KB 확장)
     std::array<uint8_t, MEMORY_SIZE_32> memory;     // 64KB 메모리, 각 셀은 8비트
-    
     // 레지스터 (기존 16개 -> 32개로 확장, 8비트 -> 32비트)
     std::array<uint32_t, NUM_REGISTERS_32> R;        // 32개의 32비트 범용 레지스터
-    
     // 시스템 레지스터들 (16비트 -> 32비트 확장)
     uint32_t I;                                  // 인덱스 레지스터 (메모리 주소)
     uint32_t pc;                                 // 프로그램 카운터
-
     // 스택 관련 (16비트 주소 -> 32비트 주소, 스택 크기 16단계 -> 32단계로 확장)
     std::array<uint32_t, STACK_SIZE_32> stack;      // 서브루틴 호출 스택 (32비트 주소 저장)
     uint8_t sp;                                  // 스택 포인터 (0-31이므로 8비트로 충분)
-
     // 명령어 처리 (16비트 -> 32비트 확장)
     uint32_t opcode;                             // 현재 실행 중인 명령어 (4바이트)
-
     size_t loaded_rom_size; 
-
     uint32_t last_timer_update = 0;
 
+    void LoadBuiltinFileManager(); // 부트로더 로드 함수 선언
+    
 public:
     Chip8_32(); // 생성자: 초기화 수행
 

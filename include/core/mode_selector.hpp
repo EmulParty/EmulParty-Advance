@@ -21,7 +21,7 @@ public:
      */
     static void set_debug_mode(bool enable);
     
-    static int select_and_run(const char* rom_path);
+    static int select_and_run();
 
 private:
     /**
@@ -36,12 +36,12 @@ private:
      * @param rom_path ROM 파일 경로
      * @return 실행 결과
      */
-    static int run_8bit_mode(const char* rom_path);
+    static int run_8bit_mode();
     
     /**
      * @brief 32비트 모드 실행
      * @param rom_path ROM 파일 경로
      * @return 실행 결과
      */
-    static int run_32bit_mode(const char* rom_path);
+    static int run_32bit_mode();
 };
