@@ -1,188 +1,441 @@
-# 🕹️ CHIP-8 Emulator (C++ & SDL2)
-
-**CHIP-8**은 1970년대에 설계된 간단한 가상 머신 시스템으로, 고전 게임을 실행하기 위한 인터프리터입니다.  
-이 프로젝트는 CHIP-8 명세를 기반으로 한 **에뮬레이터**를 C++와 SDL2를 사용하여 구현한 것입니다.
-
----
-
-## 📁 프로젝트 구조
-
-```
-chip8-emulator/
+CHIP-8 Dual Mode Emulator
+세상에 없던 32비트 확장 CHIP-8 에뮬레이터와 보안 취약점 시뮬레이션 플랫폼
+📋 프로젝트 개요
+이 프로젝트는 전통적인 8비트 CHIP-8 에뮬레이터를 32비트로 확장하고, 스택 프레임 관리와 메모리 보안 기능을 추가한 교육용 에뮬레이터입니다. 에뮬레이터 상에서 다양한 보안 취약점을 시뮬레이션할 수 있도록 설계되었습니다.
+🏗️ 프로젝트 구조
+EmulParty-Advance/
 ├── include/
-│   ├── core/             # Chip8 클래스 및 명령어 해석기 헤더
-│   └── platform/         # SDL2 플랫폼 추상화
+│   ├── common/
+│   │   └── constants.hpp          # 공통 상수 정의
+│   ├── core/
+│   │   ├── chip8.hpp             # 8비트 CHIP-8 코어
+│   │   ├── chip8_32.hpp          # 32비트 CHIP-8 확장 코어
+│   │   ├── mode_selector.hpp      # 모드 선택기
+│   │   ├── opcode_table.hpp       # 8비트 명령어 테이블
+│   │   └── opcode_table_32.hpp    # 32비트 명령어 테이블
+│   ├── debugger/
+│   │   └── debugger.hpp           # 디버거 헤더
+│   ├── platform/
+│   │   ├── platform.hpp          # SDL2 플랫폼 계층
+│   │   └── timer.hpp              # 타이머 유틸리티
+│   └── security/                  # 보안 기능 (추후 확장)
 ├── src/
-│   ├── core/             # Chip8 로직, opcode_table 등
-│   └── platform/         # SDL2 렌더링 및 입력 처리 구현
-├── test/                 # Catch2 테스트 코드
-├── roms/                 # 테스트용 ROM (예: pong.ch8, Brick.ch8)
-├── CMakeLists.txt        # CMake 빌드 설정
-└── README.md             # 프로젝트 설명 문서
-```
+│   ├── core/
+│   │   ├── chip8.cpp
+│   │   ├── chip8_32.cpp
+│   │   ├── mode_selector.cpp
+│   │   ├── opcode_table.cpp
+│   │   └── opcode_table_32.cpp
+│   ├── debugger/
+│   │   └── debugger.cpp
+│   ├── platform/
+│   │   ├── platform.cpp
+│   │   └── timer.cpp
+│   └── main.cpp
+├── roms/                          # ROM 파일들
+└── build/                         # 빌드 출력 디렉토리
+🎯 주요 기능
+🔧 기본 기능
 
----
+듀얼 모드 지원: 8비트 클래식 CHIP-8 + 32비트 확장 모드
+파일 확장자 자동 감지: .ch8/.c8 (8비트), .ch32/.c32 (32비트)
+SDL2 기반 그래픽: WSL2/X11 환경 지원
+실시간 키보드 입력: QWERTY 키보드 매핑
 
-## 🚀 실행 방법
+🐛 디버깅 기능
 
-### 1. SDL2 설치 (DBus, 오디오 등 비활성화 빌드)
+인터랙티브 디버거: 단계별 실행, 브레이크포인트
+실시간 상태 모니터링: 레지스터, 메모리, 스택 상태
+명령어 디스어셈블: 실행 중인 opcode 해석 표시
 
-```bash
-cd ~/chip8-emulator
-git clone https://github.com/libsdl-org/SDL.git
-cd SDL
-mkdir build && cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local -DSDL_DLOPEN=OFF -DSDL_DBUS=OFF -DSDL_PULSEAUDIO=OFF -DSDL_ALSA=OFF
-make -j$(nproc)
-sudo make install
-```
+🛡️ 보안 기능 (개발 중)
 
-### 2. 프로젝트 빌드
+스택 프레임 관리: 함수 호출/반환 추적
+메모리 보안 검사: 버퍼 오버플로우 감지
+취약점 시뮬레이션: 교육용 보안 시나리오
 
-```bash
-cd ~/chip8-emulator
-mkdir build && cd build
+📦 시스템 요구사항
+필수 의존성
+
+CMake: 3.10 이상
+C++ 컴파일러: GCC 7+ 또는 Clang 5+
+SDL2: 개발 라이브러리 포함
+
+Ubuntu/Debian 설치
+bashsudo apt update
+sudo apt install build-essential cmake libsdl2-dev
+WSL2 환경 (X11 필요)
+bash# X11 서버 설치 (Windows에서)
+# VcXsrv 또는 X410 사용 권장
+
+# WSL2에서 DISPLAY 환경변수 설정
+export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0.0
+🚀 빌드 및 실행
+1. 빌드
+bash# 프로젝트 루트에서
+mkdir -p build
+cd build
 cmake ..
 make
-```
+2. 실행 방법
+🎮 일반 모드 (Normal Mode)
+bash# 8비트 CHIP-8 ROM 실행
+./chip8_dual ../roms/maze.ch8
+./chip8_dual ../roms/pong.ch8
+./chip8_dual ../roms/tetris.c8
 
-### 3. 실행
+# 32비트 확장 ROM 실행 (추후 지원)
+./chip8_dual ../roms/extended_demo.ch32
+🐛 디버그 모드 (Debug Mode)
+bash# 디버그 모드로 8비트 ROM 실행
+./chip8_dual --debug ../roms/maze.ch8
+./chip8_dual -d ../roms/pong.ch8
 
-```bash
-./chip8 ../roms/pong.ch8
-./chip8 ../roms/Brick.ch8
-```
+# 디버그 모드로 32비트 ROM 실행
+./chip8_dual --debug ../roms/extended_demo.ch32
+💡 디버그 모드 특징:
 
----
+각 명령어마다 실행 일시정지
+Enter 키만 누르면 다음 명령어 실행
+실시간 상태 모니터링 (레지스터, 메모리, 스택)
+브레이크포인트 지원
 
-## ⚙️ 구현 개요
+3. 명령행 옵션
+bash# 기본 사용법
+./chip8_dual [옵션] <ROM_파일>
 
-### ✅ 1. CHIP-8 메모리 구조
+# 옵션:
+#   --debug, -d    인터랙티브 디버거 활성화
+#   --help, -h     도움말 표시 (추후 구현)
 
-| 주소 범위        | 설명                          |
-|------------------|-------------------------------|
-| 0x000 ~ 0x1FF     | 인터프리터 / 폰트셋 저장 공간       |
-| 0x200 ~           | 프로그램(ROM)이 로드되는 위치      |
-| 0xEA0 ~ 0xEFF     | 스택 영역 (서브루틴 복귀용)         |
-| 0xF00 ~ 0xFFF     | 디스플레이 메모리 / 키 입력 상태 저장 |
+# 예시:
+./chip8_dual ../roms/space_invaders.ch8           # 일반 실행
+./chip8_dual --debug ../roms/breakout.ch8         # 디버그 모드
+🎮 조작법
+키보드 매핑
+CHIP-8의 16진 키패드를 QWERTY 키보드에 매핑:
+CHIP-8 키패드     →     QWERTY 키보드
+┌─────────────┐         ┌─────────────┐
+│ 1 │ 2 │ 3 │ C │       │ 1 │ 2 │ 3 │ 4 │
+├───┼───┼───┼───┤       ├───┼───┼───┼───┤
+│ 4 │ 5 │ 6 │ D │  →    │ Q │ W │ E │ R │
+├───┼───┼───┼───┤       ├───┼───┼───┼───┤
+│ 7 │ 8 │ 9 │ E │       │ A │ S │ D │ F │
+├───┼───┼───┼───┤       ├───┼───┼───┼───┤
+│ A │ 0 │ B │ F │       │ Z │ X │ C │ V │
+└───┴───┴───┴───┘       └───┴───┴───┴───┘
+디버거 명령어 (디버그 모드에서)
+명령어              설명
+──────────────────────────────────────
+s, step           다음 명령어 실행
+c, continue       연속 실행 모드로 전환
+q, quit           디버거 종료
+bp <주소>         브레이크포인트 설정 (16진수)
+help, h           도움말 표시
+Enter (빈 입력)   단계 실행 (step과 동일)
 
-- 전체 4KB 메모리 (`std::array<uint8_t, 4096>`)
-- ROM은 0x200 주소부터 로드됨
+예시:
+Debug> s                # 단계 실행
+Debug> [Enter]          # Enter만 쳐도 단계 실행
+Debug> bp 0x200         # 0x200 주소에 브레이크포인트
+Debug> c                # 연속 실행
+Debug> q                # 종료
+🐛 디버그 모드 사용법
+디버그 모드에서는 각 명령어가 하나씩 실행되며, 사용자 입력을 기다립니다:
 
-### ✅ 2. 명령어 처리 구조 (FDE + 구조 분리)
+단계별 실행: 프로그램이 한 명령어 실행 후 일시정지
+Enter 키: 명령어 입력 없이 Enter만 쳐도 다음 명령어 실행
+상태 표시: 매번 레지스터, 메모리, 스택 상태 출력
+브레이크포인트: 특정 주소에서 자동 일시정지
 
-- 명령어는 2바이트 단위로 구성
-- `Fetch → Decode → Execute` 구조의 `cycle()` 함수 구현
-- **초기에는 `chip8.cpp`에서 명령어를 처리했지만**, 유지보수와 확장성을 고려해 **명령어 해석 로직을 `opcode_table.cpp`로 분리**
-- `cycle()` 함수는 오직 Fetch + Decode만 수행하고, 실제 명령어 실행은 opcode_table이 담당
+bash# 디버그 모드 실행 예시
+./chip8_dual --debug ../roms/maze.ch8
 
-```cpp
-void Chip8::cycle() {
-    opcode = (memory[pc] << 8) | memory[pc + 1];  // Fetch
-    OpcodeTable::Execute(*this, opcode);          // Decode + Execute
-}
-```
+# 출력 예시:
+# ============================================================
+# 🎮 8-bit CHIP-8 Debug State
+# ============================================================
+# 📍 PC=0x200  Opcode=0xA22A  ➤ LD I
+# 
+# 📊 V0-V7:  V0=00  V1=00  V2=00  V3=00  V4=00  V5=00  V6=00  V7=00
+# 📊 V8-VF:  V8=00  V9=00  VA=00  VB=00  VC=00  VD=00  VE=00  VF=00
+# 
+# 🎯 I=022A  SP=0  Delay=0  Sound=0
+# 
+# 🐛 Debug> [여기서 Enter 또는 명령어 입력]
+📊 에뮬레이터 비교
+기능8비트 모드32비트 확장 모드메모리 크기4KB (4,096바이트)64KB (65,536바이트)레지스터16개 × 8비트 (V0-VF)32개 × 32비트 (R0-R31)스택 크기16 레벨32 레벨명령어 크기2바이트4바이트주소 공간12비트 (4KB)24비트 (16MB)호환성원본 CHIP-8 완전 호환확장 기능 + 보안
+🛠️ 개발 로드맵
+✅ 완료된 기능
 
-#### 📌 PC, SP 증감 방식
+ 8비트 CHIP-8 코어 구현
+ 32비트 확장 아키텍처
+ SDL2 플랫폼 계층
+ 파일 확장자 기반 모드 선택
+ 기본 디버거 구현
+ 메인 루프 및 입력 처리
 
-- `pc`(Program Counter)와 `sp`(Stack Pointer)는 **명령어 처리 함수 내부에서 직접 제어**
-  - 예: `chip8.set_pc(chip8.get_pc() + 2);` 또는 `chip8.set_sp(chip8.get_sp() - 1);`
-  - 명령어에 따라 `pc`를 건너뛰거나 점프 / `sp`를 push/pop 형태로 조작
+🚧 진행 중
 
-```cpp
-void OP_2NNN(Chip8& chip8, uint16_t opcode) {
-    chip8.stack_at(chip8.get_sp()) = chip8.get_pc();  // 현재 주소 push
-    chip8.set_sp(chip8.get_sp() + 1);
-    chip8.set_pc(opcode & 0x0FFF);                    // 점프
-}
-```
+ 스택 프레임 관리 시스템
+ 메모리 보안 검사 opcode
+ 고급 디버거 기능 (메모리 뷰어, 레지스터 편집)
 
-### ✅ 3. opcode 함수 포인터 테이블 구조
+📅 예정된 기능
 
-- 상위 4비트를 인덱스로 사용한 `primary_table`을 통해 각 명령어 처리 함수에 연결
+ 버퍼 오버플로우 시뮬레이션
+ Use-after-free 감지
+ ROP 체인 분석
+ 메모리 누수 추적
+ 취약점 시나리오 라이브러리
 
-```cpp
-primary_table[0x1] = OP_1NNN;
-primary_table[0x2] = OP_2NNN;
-```
+🐞 문제 해결
+일반적인 문제들
+SDL2 초기화 실패
+bash# 오류: SDL_Init failed
+# 해결: SDL2 개발 라이브러리 설치
+sudo apt install libsdl2-dev
 
-- opcode_table.cpp에서 함수 포인터 기반 테이블 방식으로 구현 완료
-- switch-case보다 구조적이고 유지보수에 용이
+# WSL2 환경에서 X11 연결 문제
+export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0.0
+빌드 오류
+bash# CMake 버전 문제
+cmake --version  # 3.10+ 확인
 
-### ✅ 4. SDL2 기반 그래픽 렌더링
+# 헤더 파일 누락
+# include 디렉토리 구조 확인
+ROM 로드 실패
+bash# 파일 경로 확인
+ls -la ../roms/
 
-- 화면 해상도: `64 x 32` 픽셀, 확대 배율: `10x`
-- 화면 출력은 `draw_flag`를 기준으로 렌더링 시점 제어
-- 텍스처 업데이트 방식으로 SDL 화면에 비디오 메모리 출력
+# 권한 문제
+chmod +r ../roms/*.ch8
+🧪 테스트 ROM 목록
+8비트 클래식 ROM
 
-#### 키 매핑
+maze.ch8 - 미로 생성기
+pong.ch8 - 퐁 게임
+tetris.ch8 - 테트리스
+space_invaders.ch8 - 스페이스 인베이더
+breakout.ch8 - 벽돌깨기
 
-| CHIP-8 Key | PC Key |
-|------------|--------|
-| 1 2 3 C    | 1 2 3 4 |
-| 4 5 6 D    | Q W E R |
-| 7 8 9 E    | A S D F |
-| A 0 B F    | Z X C V |
+32비트 확장 ROM (개발 예정)
 
----
+stack_demo.ch32 - 스택 프레임 데모
+security_test.ch32 - 보안 기능 테스트
+buffer_overflow.ch32 - 버퍼 오버플로우 시나리오
 
-## ✅ 구현된 명령어
+🤝 기여하기
+이 프로젝트는 교육 목적으로 개발되고 있습니다. 기여를 환영합니다!
+개발 환경 설정
 
-> CHIP-8 명세에 따라 **전 opcode 35개 완전 구현 완료**
+프로젝트 포크
+새 브랜치 생성: git checkout -b feature/새기능
+변경사항 커밋: git commit -m "새 기능 추가"
+브랜치 푸시: git push origin feature/새기능
+Pull Request 생성
 
-| 명령어 종류 |
-|-------------|
-| 00E0, 00EE, 1NNN, 2NNN, 3XNN, 4XNN, 5XY0, 6XNN, 7XNN |
-| 8XY0~8XYE (논리연산, 덧셈, 쉬프트, 비교 등) |
-| 9XY0, ANNN, BNNN, CXNN, DXYN (스프라이트 그리기) |
-| EX9E, EXA1 (키 입력 분기) |
-| FX07, FX0A, FX15, FX18, FX1E, FX29, FX33, FX55, FX65 |
+코딩 스타일
 
----
+C++17 표준 사용
+헤더 가드 대신 #pragma once 사용
+명확한 변수명과 주석
+RAII 원칙 준수
 
-## ✅ 실행 확인된 ROM
+📜 라이선스
+이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 LICENSE 파일을 참조하세요.
+🙏 감사의 말
 
-| ROM 이름 | 실행 결과 |
-|----------|-----------|
-| `pong.ch8` | 정상 실행. 키 입력 처리 및 게임 진행 가능 |
-| `Brick.ch8` | 정상 실행. 벽돌 깨기 게임 작동 |
+SDL2 라이브러리 개발팀
+원본 CHIP-8 아키텍처 설계자들
+오픈소스 에뮬레이터 커뮤니티
 
----
 
-## 🐞 Known Issues
+⚠️ 주의사항: 이 에뮬레이터는 교육 목적으로 개발되었습니다. 실제 보안 취약점 연구나 악의적인 목적으로 사용하지 마세요.
 
-| 문제                           | 설명                                                                 |
-|--------------------------------|----------------------------------------------------------------------|
-| ⚠️ 그래픽 깜빡거림 (flickering) | SDL 렌더링 타이밍 또는 `draw_flag` 처리 최적화 부족으로 일부 ROM에서 화면이 과하게 깜빡임 발생 가능 |
-| ✅ 빨간 배경 문제 해결          | 이전 알파 채널 오류는 SDL 포맷 수정으로 해결 완료                         |
-| 🟢 명령어 처리 누락 없음         | 모든 명령어 완전 구현 완료됨                                          |
 
----
 
-## 🔬 테스트 코드
 
-`test/test_chip8.cpp`에 Catch2를 이용한 유닛 테스트 구현 완료
 
-```cpp
-TEST_CASE("6XNN: Set Vx", "[opcode]") {
-    Chip8 chip8;
-    chip8.memory[0x200] = 0x60;
-    chip8.memory[0x201] = 0x0A;
-    chip8.pc = 0x200;
-    chip8.cycle();
-    REQUIRE(chip8.V[0] == 0x0A);
-}
-```
 
----
 
-## 📚 참고 자료
 
-- 📘 [Cowgod's CHIP-8 Reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM)
-- 📗 [Austin Morlan's CHIP-8 Guide](https://austinmorlan.com/posts/chip8_emulator/)
-- 📁 [CHIP-8 ROM 테스트 모음](https://github.com/dmatlack/chip8/tree/master/roms)
 
----
 
-> 개발자: [@daayuun](https://github.com/daayuun)  
-> Organization: [EmulParty](https://github.com/EmulParty)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

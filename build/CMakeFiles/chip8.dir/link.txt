@@ -1,1 +1,0 @@
-/usr/bin/c++     CMakeFiles/chip8.dir/src/core/chip8.cpp.o CMakeFiles/chip8.dir/src/core/opcode_table.cpp.o CMakeFiles/chip8.dir/src/platform/platform.cpp.o CMakeFiles/chip8.dir/src/platform/timer.cpp.o CMakeFiles/chip8.dir/src/main.cpp.o  -o chip8 -Wl,-rpath,/usr/local/lib /usr/local/lib/libSDL2.so /usr/local/lib/libSDL2.so 

@@ -1,15 +1,34 @@
-# 바이너리 파일 무시
-*.exe
-*.out
+# 빌드 디렉토리 및 출력물
+/build/
+/build/*
 *.o
+*.obj
+*.so
+*.a
+*.bin
+*.log
+*.tmp
+*.ts
 
-# 개발 환경 관련 폴더 무시
-.vscode/
-.idea/
+# CMake 관련 임시 파일
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
 
-# macOS 특유 파일
-.DS_Store
+# 실행 파일 및 임시 ROM
+chip8
+tmp.ch32
 
-# 백업 파일들
+# 편집기/IDE 생성 파일
+*.swp
+*.swo
+*.DS_Store
+
+# 테스트 출력물
+/test/*.ch32
+/test/*.rom
+
+# 백업 파일
 *~
 

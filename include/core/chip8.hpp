@@ -83,7 +83,9 @@ public:
     void set_draw_flag(bool value) { draw_flag = value; }
 
     uint16_t& stack_at(uint8_t index); // 참조 리턴
-
+    uint32_t getCurrentOpcode() const {
+        return static_cast<uint32_t>(opcode);  // current_opcode → opcode로 변경
+    }
 private:
     std::array<uint8_t, MEMORY_SIZE> memory;     // 4KB 메모리
     std::array<uint8_t, NUM_REGISTERS> V;        // 범용 레지스터 V0~VF
