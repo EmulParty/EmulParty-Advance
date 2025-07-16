@@ -1,5 +1,5 @@
-#include "platform.hpp"
-#include "chip8_32.hpp"
+#include "../../include/platform/platform.hpp"
+#include "../../include/core/chip8_32.hpp"
 #include <SDL2/SDL.h>
 #include <iostream>
 

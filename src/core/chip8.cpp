@@ -1,5 +1,5 @@
-#include "chip8.hpp"
-#include "opcode_table.hpp"
+#include "../../include/core/chip8.hpp"
+#include "../../include/core/opcode_table.hpp"
 #include <cstring> // memset, memcpy
 #include <random>  // for CXNN
 #include <fstream>

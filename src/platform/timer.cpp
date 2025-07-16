@@ -1,4 +1,4 @@
-#include "timer.hpp"
+#include "../../include/platform/timer.hpp"
 #include <SDL2/SDL.h>
 
 namespace timer {

@@ -1,5 +1,6 @@
-#include "opcode_table_32.hpp"
-#include "chip8_32.hpp"
+#include "../../include/core/opcode_table_32.hpp"
+#include "../../include/core/chip8_32.hpp"
+#include "../../include/core/stack_frame.hpp"
 
 #include <stdexcept>
 #include <iostream>
@@ -317,6 +318,111 @@ namespace OpcodeTable_32 {
         chip8_32.set_pc(chip8_32.get_pc() + 4);
     }
 
+    /// @brief CALL_FRAME - 스택 프레임 생성 (11RRAAAA)
+    /// R = 레지스터 인덱스, AAAA = 함수 주소
+    void OP_11RRAAAA(Chip8_32& chip8_32, uint32_t opcode) {
+        uint8_t reg = (opcode & 0x00FF0000) >> 16;    // 레지스터 인덱스
+        uint32_t func_addr = opcode & 0x0000FFFF;     // 함수 주소 (16비트)
+        
+        std::cout << "\n=== CALL_FRAME ===" << std::endl;
+        std::cout << "Target register: R" << static_cast<int>(reg) << std::endl;
+        std::cout << "Function address: 0x" << std::hex << func_addr << std::dec << std::endl;
+        
+        // 현재 PC + 4를 반환 주소로 설정
+        uint32_t return_addr = chip8_32.get_pc() + 4;
+        uint32_t current_fp = chip8_32.get_current_frame_pointer();
+        
+        // 새 스택 프레임 생성
+        if (!chip8_32.get_frame_manager().create_frame(return_addr, current_fp)) {
+            std::cerr << "[CALL_FRAME] Failed to create stack frame!" << std::endl;
+            chip8_32.set_pc(chip8_32.get_pc() + 4);
+            return;
+        }
+        
+        // 새 프레임 포인터 설정
+        chip8_32.set_current_frame_pointer(chip8_32.get_frame_manager().get_current_fp());
+        
+        // 함수 주소로 점프
+        chip8_32.set_pc(func_addr);
+        
+        std::cout << "Frame created successfully, jumping to 0x" << std::hex << func_addr << std::dec << std::endl;
+        std::cout << "===================" << std::endl;
+    }
+
+    /// @brief RET_FRAME - 스택 프레임 복원 (12000000)
+    void OP_12000000(Chip8_32& chip8_32, uint32_t opcode) {
+        std::cout << "\n=== RET_FRAME ===" << std::endl;
+        
+        uint32_t return_addr;
+        uint32_t prev_fp;
+        
+        // 스택 프레임 복원 (카나리 검증 포함)
+        if (!chip8_32.get_frame_manager().restore_frame(return_addr, prev_fp)) {
+            std::cerr << "[RET_FRAME] Failed to restore stack frame!" << std::endl;
+            chip8_32.set_pc(chip8_32.get_pc() + 4);
+            return;
+        }
+        
+        // 프레임 포인터 복원
+        chip8_32.set_current_frame_pointer(prev_fp);
+        
+        // 반환 주소로 점프
+        chip8_32.set_pc(return_addr);
+        
+        std::cout << "Frame restored successfully, returning to 0x" << std::hex << return_addr << std::dec << std::endl;
+        std::cout << "==================" << std::endl;
+    }
+
+    /// @brief PUSH_LOCAL - 지역변수에 값 저장 (13XXVVVV)
+    /// XX = 지역변수 인덱스, VVVV = 값
+    void OP_13XXVVVV(Chip8_32& chip8_32, uint32_t opcode) {
+        uint8_t local_index = (opcode & 0x00FF0000) >> 16;  // 지역변수 인덱스
+        uint32_t value = opcode & 0x0000FFFF;               // 값 (16비트)
+        
+        std::cout << "\n=== PUSH_LOCAL ===" << std::endl;
+        std::cout << "Local index: " << static_cast<int>(local_index) << std::endl;
+        std::cout << "Value: 0x" << std::hex << value << std::dec << std::endl;
+        
+        // 지역변수에 값 저장
+        if (!chip8_32.get_frame_manager().set_current_local(local_index, value)) {
+            std::cerr << "[PUSH_LOCAL] Failed to set local variable!" << std::endl;
+        }
+        
+        chip8_32.set_pc(chip8_32.get_pc() + 4);
+        std::cout << "===================" << std::endl;
+    }
+
+    /// @brief POP_LOCAL - 지역변수에서 값 로드 (14XXRRRR)
+    /// XX = 지역변수 인덱스, RRRR = 대상 레지스터 인덱스
+    void OP_14XXRRRR(Chip8_32& chip8_32, uint32_t opcode) {
+        uint8_t local_index = (opcode & 0x00FF0000) >> 16;  // 지역변수 인덱스
+        uint8_t reg_index = (opcode & 0x0000FFFF);          // 대상 레지스터 인덱스
+        
+        std::cout << "\n=== POP_LOCAL ===" << std::endl;
+        std::cout << "Local index: " << static_cast<int>(local_index) << std::endl;
+        std::cout << "Target register: R" << static_cast<int>(reg_index) << std::endl;
+        
+        uint32_t value;
+        // 지역변수에서 값 로드
+        if (!chip8_32.get_frame_manager().get_current_local(local_index, value)) {
+            std::cerr << "[POP_LOCAL] Failed to get local variable!" << std::endl;
+            chip8_32.set_pc(chip8_32.get_pc() + 4);
+            return;
+        }
+        
+        // 레지스터에 값 저장
+        if (reg_index < NUM_REGISTERS_32) {
+            chip8_32.set_R(reg_index, value);
+            std::cout << "Loaded value 0x" << std::hex << value << std::dec 
+                      << " into R" << static_cast<int>(reg_index) << std::endl;
+        } else {
+            std::cerr << "[POP_LOCAL] Invalid register index: " << static_cast<int>(reg_index) << std::endl;
+        }
+        
+        chip8_32.set_pc(chip8_32.get_pc() + 4);
+        std::cout << "==================" << std::endl;
+    }
+
     /// @brief opcode 상위 8비트 기반으로 핸들러 함수 등록
     void Initialize() {
         primary_table_32.fill(nullptr);
@@ -348,13 +454,17 @@ namespace OpcodeTable_32 {
         primary_table_32[0x0D] = OP_0DXXYYNN;  // 스프라이트 그리기
         primary_table_32[0x0E] = OP_0EXXCCCC;  // 키 입력 조건 분기
         primary_table_32[0x0F] = OP_0FXXCCCC;  // Fx 계열 (타이머/메모리 함수) 확장 명령들 처리
+        primary_table_32[0x11] = OP_11RRAAAA;  // CALL_FRAME - 스택 프레임 생성
+        primary_table_32[0x12] = OP_12000000;  // RET_FRAME - 스택 프레임 복원
+        primary_table_32[0x13] = OP_13XXVVVV;  // PUSH_LOCAL - 지역변수에 값 저장
+        primary_table_32[0x14] = OP_14XXRRRR;  // POP_LOCAL - 지역변수에서 값 로드
     }
 
     /// @brief opcode를 상위 8비트로 분기하여 실행
     void Execute(Chip8_32& chip8_32, uint32_t opcode) {
         uint8_t index = (opcode & 0xFF000000) >> 24;
     
-        // 실제 구현된 명령어만 처리 (0x00~0x0F, 총 16개)
+        // 실제 구현된 명령어만 처리 (0x00~0x14, 총 21개)
         if (index >= IMPLEMENTED_OPCODES) {
             std::cerr << "Unimplemented 32-bit opcode: " << std::hex << opcode << "\n";
             chip8_32.set_pc(chip8_32.get_pc() + 4);

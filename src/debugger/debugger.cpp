@@ -1,6 +1,6 @@
-#include "debugger/debugger.hpp"
-#include "core/chip8.hpp"
-#include "core/chip8_32.hpp"
+#include "../../include/debugger/debugger.hpp"
+#include "../../include/core/chip8.hpp"
+#include "../../include/core/chip8_32.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>

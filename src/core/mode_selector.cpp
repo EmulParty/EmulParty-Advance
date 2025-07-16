@@ -1,11 +1,11 @@
-#include "mode_selector.hpp"
-#include "chip8.hpp"
-#include "chip8_32.hpp"
-#include "opcode_table.hpp"
-#include "opcode_table_32.hpp"
-#include "platform.hpp"
-#include "timer.hpp"
-#include "debugger/debugger.hpp"
+#include "../../include/core/mode_selector.hpp"
+#include "../../include/core/chip8.hpp"
+#include "../../include/core/chip8_32.hpp"
+#include "../../include/core/opcode_table.hpp"
+#include "../../include/core/opcode_table_32.hpp"
+#include "../../include/platform/platform.hpp"
+#include "../../include/platform/timer.hpp"
+#include "../../include/debugger/debugger.hpp"
 #include <iostream>
 #include <algorithm>
 

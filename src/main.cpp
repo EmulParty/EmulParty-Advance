@@ -1,4 +1,4 @@
-#include "mode_selector.hpp"
+#include "../../include/core/mode_selector.hpp"
 #include <iostream>
 #include <string>
 

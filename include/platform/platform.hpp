@@ -3,7 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <SDL2/SDL.h>
-#include "common/constants.hpp"
+#include "../common/constants.hpp"
 
 /**
  * @brief WSL2/X11 대응 Platform 클래스 (SDL2 기반)

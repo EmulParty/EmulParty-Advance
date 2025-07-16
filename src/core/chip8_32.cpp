@@ -1,5 +1,6 @@
-#include "chip8_32.hpp"
-#include "opcode_table_32.hpp"
+#include "../../include/core/chip8_32.hpp"
+#include "../../include/core/opcode_table_32.hpp"
+#include "../../include/core/stack_frame.hpp"
 #include <cstring> // memset, memcpy
 #include <random>  // for CXNN
 #include <fstream>
@@ -31,6 +32,7 @@ static const uint8_t chip8_fontset[80] = {
 Chip8_32::Chip8_32() {
     loaded_rom_size = 0;
     last_timer_update = 0;
+    current_frame_pointer_ = 0;
     reset();
 }
 

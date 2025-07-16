@@ -2,7 +2,7 @@
 
 #include <array>
 #include <cstdint>
-#include "common/constants.hpp"
+#include "../common/constants.hpp"
 
 // CHIP-8은 4KB 메모리를 사용합니다.
 constexpr unsigned int MEMORY_SIZE = 4096;

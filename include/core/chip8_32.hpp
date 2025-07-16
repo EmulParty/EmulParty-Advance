@@ -3,8 +3,9 @@
 #include <array>
 #include <cstdint>
 #include <cstddef>
-#include "common/constants.hpp"
-#include "timer.hpp"
+#include "../common/constants.hpp"
+#include "../platform/timer.hpp"
+#include "./stack_frame.hpp"
 
 
 // CHIP-8 확장 버전은 우선 64KB 메모리를 사용합니다. 
@@ -38,6 +39,9 @@ private:
     size_t loaded_rom_size; 
 
     uint32_t last_timer_update = 0;
+
+    StackFrameManager frame_manager_; // 스택 프레임 관리자
+    uint32_t current_frame_pointer_; // 현재 프레임 포인터
 
 public:
     Chip8_32(); // 생성자: 초기화 수행
@@ -111,4 +115,10 @@ public:
     uint32_t getCurrentOpcode() const {
         return opcode;
     }
+
+    // 스택 프레임 관련 인터페이스
+    StackFrameManager& get_frame_manager() { return frame_manager_; }
+    const StackFrameManager& get_frame_manager() const { return frame_manager_; }
+    uint32_t get_current_frame_pointer() const { return current_frame_pointer_; }
+    void set_current_frame_pointer(uint32_t fp) { current_frame_pointer_ = fp; }
 };
