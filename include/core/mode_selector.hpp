@@ -14,14 +14,14 @@ public:
      * @param rom_path ROM 파일 경로
      * @return 실행 결과 (0: 성공, 1: 실패)
      */
+    static int select_and_run();
 
     /**
      * @brief 디버그 모드 설정
      * @param enable true면 디버그 모드 활성화
      */
     static void set_debug_mode(bool enable);
-    
-    static int select_and_run();
+   
 
 private:
     /**
@@ -30,18 +30,6 @@ private:
      * @return 소문자로 변환된 확장자 (예: ".ch8", ".ch32")
      */
     static std::string get_file_extension(const std::string& filename);
-    
-    /**
-     * @brief 8비트 모드 실행
-     * @param rom_path ROM 파일 경로
-     * @return 실행 결과
-     */
-    static int run_8bit_mode();
-    
-    /**
-     * @brief 32비트 모드 실행
-     * @param rom_path ROM 파일 경로
-     * @return 실행 결과
-     */
-    static int run_32bit_mode();
+    static int run_8bit_mode_with_file(const std::string& filename);
+    static int run_32bit_mode_with_file(const std::string& filename);
 };

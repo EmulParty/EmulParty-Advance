@@ -21,11 +21,11 @@ void print_version() {
 void print_banner() {
     std::cout << "\n";
     std::cout << "╔═══════════════════════════════════════════════════════════════╗\n";
-    std::cout << "║                CHIP-8 Extended Emulator v2.0                 ║\n";
-    std::cout << "║                   32-bit Enhanced Mode                       ║\n";
+    std::cout << "║                CHIP-8 Extended Emulator v2.0                  ║\n";
+    std::cout << "║                   32-bit Enhanced Mode                        ║\n";
     std::cout << "╠═══════════════════════════════════════════════════════════════╣\n";
-    std::cout << "║  Features: Stack Frames • Debugger • SDL2 Interface         ║\n";
-    std::cout << "║  ROM Files: Place files in ../roms/ directory               ║\n";
+    std::cout << "║  Features: Stack Frames • Debugger • SDL2 Interface           ║\n";
+    std::cout << "║  ROM Files: Place files in ../roms/ directory                 ║\n";
     std::cout << "╚═══════════════════════════════════════════════════════════════╝\n";
     std::cout << "\n";
 }

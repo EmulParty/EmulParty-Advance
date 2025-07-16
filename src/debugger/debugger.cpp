@@ -134,48 +134,62 @@ std::string Debugger8::disassemble(uint32_t opcode) {
     return oss.str();
 }
 
+// 기존 코드 마지막 부분에 추가 (} // namespace chip8emu 바로 위에)
+
 void Debugger8::handleDebugInput() {
-    while (true) {
-        std::cout << "\n🐛 Debug> ";
-        std::string input;
-        std::getline(std::cin, input);
-        
-        // 공백 제거
-        input.erase(0, input.find_first_not_of(" \t"));
-        input.erase(input.find_last_not_of(" \t") + 1);
-        
-        if (input.empty() || input == "s" || input == "step") {
-            break; // 다음 명령어 실행
-        } else if (input == "c" || input == "continue") {
-            step_mode_ = false;
-            std::cout << "▶️  Continuing execution...\n";
-            break;
-        } else if (input == "q" || input == "quit") {
-            std::cout << "👋 Exiting debugger...\n";
-            enabled_ = false;
-            break;
-        } else if (input.substr(0, 2) == "bp") {
-            if (input.length() > 3) {
-                try {
-                    uint16_t addr = std::stoi(input.substr(3), nullptr, 16);
-                    addBreakpoint(addr);
-                    std::cout << "📍 Breakpoint set at " << toHex16(addr) << "\n";
-                } catch (...) {
-                    std::cout << "❌ Invalid address format. Use: bp 0x200\n";
-                }
+    if (!step_mode_) return;
+    
+    std::cout << "\n🐛 [DEBUG 8-bit] PC=0x" << std::hex << chip8_.get_pc() << std::dec << std::endl;
+    std::cout << "Enter command (s=step, c=continue, q=quit, h=help): ";
+    
+    std::string input;
+    std::getline(std::cin, input);
+    
+    if (input.empty()) {
+        input = "s";
+    }
+    
+    if (input == "s" || input == "step") {
+        std::cout << "➤ Stepping to next instruction..." << std::endl;
+    }
+    else if (input == "c" || input == "continue") {
+        step_mode_ = false;
+        std::cout << "➤ Continuing execution..." << std::endl;
+    }
+    else if (input == "q" || input == "quit") {
+        enabled_ = false;
+        std::cout << "➤ Exiting debugger..." << std::endl;
+    }
+    else if (input.substr(0, 2) == "bp") {
+        if (input.length() > 3) {
+            try {
+                uint16_t addr = std::stoul(input.substr(3), nullptr, 16);
+                addBreakpoint(addr);
+                std::cout << "➤ Breakpoint set at 0x" << std::hex << addr << std::dec << std::endl;
+            } catch (...) {
+                std::cout << "❌ Invalid address. Use: bp 0x200" << std::endl;
             }
-        } else if (input == "help" || input == "h") {
-            std::cout << "\n🐛 Debug Commands:\n"
-                      << "  s, step       - Execute next instruction\n"
-                      << "  c, continue   - Continue execution\n"
-                      << "  q, quit       - Exit debugger\n"
-                      << "  bp <addr>     - Set breakpoint (hex)\n"
-                      << "  help, h       - Show this help\n\n";
         } else {
-            std::cout << "❌ Unknown command. Type 'help' for commands.\n";
+            std::cout << "❌ Usage: bp <address>. Example: bp 0x200" << std::endl;
         }
     }
+    else if (input == "h" || input == "help") {
+        std::cout << "\n🐛 Debug Commands:" << std::endl;
+        std::cout << "  s, step       - Execute next instruction" << std::endl;
+        std::cout << "  c, continue   - Continue execution" << std::endl;
+        std::cout << "  q, quit       - Exit debugger" << std::endl;
+        std::cout << "  bp <addr>     - Set breakpoint (hex)" << std::endl;
+        std::cout << "  h, help       - Show this help" << std::endl;
+        handleDebugInput();
+    }
+    else {
+        std::cout << "❌ Unknown command '" << input << "'. Type 'h' for help." << std::endl;
+        handleDebugInput();
+    }
 }
+
+
+
 
 // ===============================================
 // 32비트 디버거 구현
@@ -268,45 +282,59 @@ std::string Debugger32::disassemble(uint32_t opcode) {
 }
 
 void Debugger32::handleDebugInput() {
-    while (true) {
-        std::cout << "\n🐛 Debug> ";
-        std::string input;
-        std::getline(std::cin, input);
-        
-        // 공백 제거
-        input.erase(0, input.find_first_not_of(" \t"));
-        input.erase(input.find_last_not_of(" \t") + 1);
-        
-        if (input.empty() || input == "s" || input == "step") {
-            break; // 다음 명령어 실행
-        } else if (input == "c" || input == "continue") {
-            step_mode_ = false;
-            std::cout << "▶️  Continuing execution...\n";
-            break;
-        } else if (input == "q" || input == "quit") {
-            std::cout << "👋 Exiting debugger...\n";
-            enabled_ = false;
-            break;
-        } else if (input.substr(0, 2) == "bp") {
-            if (input.length() > 3) {
-                try {
-                    uint16_t addr = std::stoi(input.substr(3), nullptr, 16);
-                    addBreakpoint(addr);
-                    std::cout << "📍 Breakpoint set at " << toHex16(addr) << "\n";
-                } catch (...) {
-                    std::cout << "❌ Invalid address format. Use: bp 0x200\n";
-                }
+    if (!step_mode_) return; // step 모드가 아니면 바로 리턴
+    
+    std::cout << "\n🐛 [DEBUG] PC=0x" << std::hex << chip8_.get_pc() << std::dec << std::endl;
+    std::cout << "Enter command (s=step, c=continue, q=quit, h=help): ";
+    
+    std::string input;
+    std::getline(std::cin, input);
+    
+    // 입력이 비어있으면 기본적으로 step
+    if (input.empty()) {
+        input = "s";
+    }
+    
+    if (input == "s" || input == "step") {
+        // step_mode_는 그대로 유지 (다음에도 멈춤)
+        std::cout << "➤ Stepping to next instruction..." << std::endl;
+    }
+    else if (input == "c" || input == "continue") {
+        step_mode_ = false;
+        std::cout << "➤ Continuing execution..." << std::endl;
+    }
+    else if (input == "q" || input == "quit") {
+        enabled_ = false;  // 디버거 완전 종료
+        std::cout << "➤ Exiting debugger..." << std::endl;
+    }
+    else if (input.substr(0, 2) == "bp") {
+        // 브레이크포인트 설정
+        if (input.length() > 3) {
+            try {
+                uint32_t addr = std::stoul(input.substr(3), nullptr, 16);
+                addBreakpoint(addr);
+                std::cout << "➤ Breakpoint set at 0x" << std::hex << addr << std::dec << std::endl;
+            } catch (...) {
+                std::cout << "❌ Invalid address. Use: bp 0x200" << std::endl;
             }
-        } else if (input == "help" || input == "h") {
-            std::cout << "\n🐛 Debug Commands:\n"
-                      << "  s, step       - Execute next instruction\n"
-                      << "  c, continue   - Continue execution\n"
-                      << "  q, quit       - Exit debugger\n"
-                      << "  bp <addr>     - Set breakpoint (hex)\n"
-                      << "  help, h       - Show this help\n\n";
         } else {
-            std::cout << "❌ Unknown command. Type 'help' for commands.\n";
+            std::cout << "❌ Usage: bp <address>. Example: bp 0x200" << std::endl;
         }
+    }
+    else if (input == "h" || input == "help") {
+        std::cout << "\n🐛 Debug Commands:" << std::endl;
+        std::cout << "  s, step       - Execute next instruction" << std::endl;
+        std::cout << "  c, continue   - Continue execution" << std::endl;
+        std::cout << "  q, quit       - Exit debugger" << std::endl;
+        std::cout << "  bp <addr>     - Set breakpoint (hex)" << std::endl;
+        std::cout << "  h, help       - Show this help" << std::endl;
+        // help 후에는 다시 입력 받기
+        handleDebugInput();
+    }
+    else {
+        std::cout << "❌ Unknown command '" << input << "'. Type 'h' for help." << std::endl;
+        // 잘못된 입력 후에는 다시 입력 받기
+        handleDebugInput();
     }
 }
 

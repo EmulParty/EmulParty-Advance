@@ -1,3 +1,4 @@
+// mode_selector.cpp - 60Hz 고정 속도 제어
 #include "mode_selector.hpp"
 #include "chip8.hpp"
 #include "chip8_32.hpp"
@@ -17,28 +18,11 @@ void ModeSelector::set_debug_mode(bool enable) {
 }
 
 int ModeSelector::select_and_run() {
-    // 일단 32비트 모드만 지원
-   std::cout << "[INFO] Starting File Input Mode\n";
-   return run_32bit_mode();
-}
-
-int ModeSelector::run_8bit_mode() {
-    std::cout << "\n=== Starting 8-bit CHIP-8 Emulator ===" << std::endl;
+    std::cout << "[INFO] Starting Enhanced CHIP-8 Emulator\n";
+    std::cout << "[INFO] Supported formats: .ch8 (8-bit), .ch32 (32-bit)\n";
     
-    // 8비트 전용 초기화
-    OpcodeTable::Initialize();
-    Chip8 chip8;
-    
-    // 디버거 생성
-    chip8emu::Debugger8 debugger(chip8);
-    if (g_debug_mode) {
-        debugger.enable(true);
-        debugger.setStepMode(true);
-        std::cout << "🐛 Debug mode enabled for 8-bit CHIP-8\n";
-    }
-    
-    // 플랫폼 초기화
-    Platform platform("CHIP-8 Emulator (8-bit Mode)", 
+    // 플랫폼 초기화 (파일 선택용)
+    Platform platform("CHIP-8 File Selector", 
                       VIDEO_WIDTH * SCALE, VIDEO_HEIGHT * SCALE,
                       VIDEO_WIDTH, VIDEO_HEIGHT);
     
@@ -47,73 +31,125 @@ int ModeSelector::run_8bit_mode() {
         return 1;
     }
     
-    // 파일 입력 루프
-    while(!platform.IsFileSelected()) {
-        if (platform.ProcessInput(chip8.keypad)) return 1;
+    // 파일 선택
+    std::cout << "[INFO] Please select ROM file..." << std::endl;
+    while (!platform.IsFileSelected()) {
+        static std::array<uint8_t, 16> dummy_keypad = {0}; // <- 이 부분 수정
+        if (platform.ProcessInput(dummy_keypad)) return 1;
+        platform.UpdateFileInput();
+        timer::delay(16);
+    }
+
+    std::string filename = platform.GetSelectedFile();
+    std::string extension = get_file_extension(filename);
+    
+    std::cout << "[INFO] Selected file: " << filename << std::endl;
+    std::cout << "[INFO] Extension: " << extension << std::endl;
+    
+    // 확장자 기반 모드 선택
+    if (extension == ".ch8" || extension == ".c8") {
+        std::cout << "[INFO] Detected 8-bit CHIP-8 ROM" << std::endl;
+        return run_8bit_mode_with_file(filename);
+    }
+    else if (extension == ".ch32" || extension == ".c32") {
+        std::cout << "[INFO] Detected 32-bit CHIP-8 ROM" << std::endl;
+        return run_32bit_mode_with_file(filename);
+    }
+    else {
+        std::cout << "[WARNING] Unknown extension, trying 8-bit mode..." << std::endl;
+        return run_8bit_mode_with_file(filename);
+    }
+}
+
+// 8비트 모드 (파일명 직접 전달)
+int ModeSelector::run_8bit_mode_with_file(const std::string& filename) {
+    std::cout << "\n=== Starting 8-bit CHIP-8 Emulator ===" << std::endl;
+    
+    OpcodeTable::Initialize();
+    Chip8 chip8;
+    
+    chip8emu::Debugger8 debugger(chip8);
+    if (g_debug_mode) {
+        debugger.enable(true);
+        debugger.setStepMode(true);
+        std::cout << "🐛 Debug mode enabled for 8-bit CHIP-8\n";
+    }
+    
+    Platform platform("CHIP-8 Emulator (8-bit Mode)", 
+                      VIDEO_WIDTH * SCALE, VIDEO_HEIGHT * SCALE,
+                      VIDEO_WIDTH, VIDEO_HEIGHT);
+    
+    if (!platform.Initialize()) {
+        std::cerr << "[ERROR] Platform initialization failed!" << std::endl;
+        return 1;
     }
 
     // 파일 로드
-    std::string filename = platform.GetSelectedFile();
     std::string full_path = "../roms/" + filename;
     if (!chip8.load_rom(full_path.c_str())) {
         std::cerr << "[ERROR] Failed to load ROM: " << full_path << std::endl;
         return 1;
     }
 
-
-    // 시스템 정보 출력
-    std::cout << "[INFO] 8-bit CHIP-8 System Ready" << std::endl;
-    std::cout << "  Memory: 4KB (4096 bytes)" << std::endl;
+    std::cout << "[INFO] 8-bit CHIP-8 System Ready (60Hz)" << std::endl;
+    std::cout << "  Memory: 4KB" << std::endl;
     std::cout << "  Registers: 16 x 8-bit (V0-VF)" << std::endl;
-    std::cout << "  Stack: 16 levels" << std::endl;
-    std::cout << "  Instruction Size: 2 bytes" << std::endl;
-    std::cout << "  Controls: 1234/QWER/ASDF/ZXCV" << std::endl;
+    std::cout << "  ROM: " << filename << std::endl;
     
     if (g_debug_mode) {
-        std::cout << "  🐛 Debug Mode: ON (Type 'help' for commands)" << std::endl;
+        std::cout << "  🐛 Debug Mode: ON" << std::endl;
+        std::cout << "  Debug Commands: step, continue, quit, help" << std::endl;
     }
     
-    // 메인 루프 - 수정된 부분
     bool quit = false;
-    bool debugger_active = true;  // 디버거 상태를 별도로 관리
+    bool debugger_active = true;
     
     while (!quit && debugger_active) {
-        // 입력 처리
+        uint32_t frame_start = timer::get_ticks();
+        
         quit = platform.ProcessInput(chip8.keypad);
         
-        // 디버그 정보 출력 (실행 전) - 디버그 모드일 때만
+        // 디버그 모드 처리
         if (debugger.isEnabled()) {
             uint32_t current_opcode = chip8.getCurrentOpcode();
             debugger.printState(current_opcode);
             
-            // 디버거에서 quit 명령을 받았는지 확인
             if (!debugger.isEnabled()) {
                 debugger_active = false;
                 break;
             }
         }
         
-        // CPU 사이클 실행
         chip8.cycle();
         
-        // 타이머 업데이트 (60Hz)
-        if (chip8.delay_timer > 0) chip8.delay_timer--;
-        if (chip8.sound_timer > 0) chip8.sound_timer--;
+        // 타이머 업데이트
+        static uint32_t last_timer_update = 0;
+        uint32_t current_time = timer::get_ticks();
+        if (current_time - last_timer_update >= 16) {
+            if (chip8.delay_timer > 0) chip8.delay_timer--;
+            if (chip8.sound_timer > 0) chip8.sound_timer--;
+            last_timer_update = current_time;
+        }
         
-        // 화면 업데이트
         if (chip8.needs_redraw()) {
             platform.Update(chip8.video, VIDEO_WIDTH * sizeof(uint32_t));
             chip8.clear_draw_flag();
         }
         
-        timer::delay(g_debug_mode ? 100 : 16); // 디버그 모드에서는 느리게
+        // 60Hz 속도 제어
+        uint32_t frame_end = timer::get_ticks();
+        uint32_t elapsed = frame_end - frame_start;
+        if (elapsed < 16) {
+            timer::delay(16 - elapsed);
+        }
     }
     
     std::cout << "[INFO] 8-bit CHIP-8 emulator terminated" << std::endl;
     return 0;
 }
 
-int ModeSelector::run_32bit_mode() {
+// 32비트 모드 (파일명 직접 전달)
+int ModeSelector::run_32bit_mode_with_file(const std::string& filename) {
     std::cout << "\n=== Starting 32-bit CHIP-8 Extended Emulator ===" << std::endl;
     
     OpcodeTable_32::Initialize();
@@ -134,39 +170,34 @@ int ModeSelector::run_32bit_mode() {
         std::cerr << "[ERROR] Platform initialization failed!" << std::endl;
         return 1;
     }
-    
-    // 수정된 파일 입력 루프 - 화면 업데이트 추가!
-    std::cout << "[INFO] Waiting for file input...\n";
-    while (!platform.IsFileSelected()) {
-        if (platform.ProcessInput(chip8_32.keypad)) return 1;
-        
-        // 이 부분이 누락되어 있었음!
-        platform.UpdateFileInput();
-        
-        // CPU 사용률 절약
-        // timer::delay(16); // 주석 처리 - timer 구현 확인 필요
-    }
 
-    std::string filename = platform.GetSelectedFile();
+    // 파일 로드
     std::string full_path = "../roms/" + filename;
     if (!chip8_32.load_rom(full_path.c_str())) {
         std::cerr << "[ERROR] Failed to load ROM: " << full_path << std::endl;
         return 1;
     }
 
-    std::cout << "[INFO] ROM loaded: " << filename << std::endl;
-    std::cout << "[INFO] 32-bit CHIP-8 Extended System Ready" << std::endl;
+    std::cout << "[INFO] 32-bit CHIP-8 Extended System Ready (60Hz)" << std::endl;
+    std::cout << "  Memory: 64KB" << std::endl;
+    std::cout << "  Registers: 32 x 32-bit (R0-R31)" << std::endl;
+    std::cout << "  ROM: " << filename << std::endl;
+    std::cout << "  I/O: READ/WRITE syscalls supported" << std::endl;
     
     if (g_debug_mode) {
         std::cout << "  🐛 Debug Mode: ON" << std::endl;
+        std::cout << "  Debug Commands: step, continue, quit, help" << std::endl;
     }
     
     bool quit = false;
     bool debugger_active = true;
     
     while (!quit && debugger_active) {
+        uint32_t frame_start = timer::get_ticks();
+        
         quit = platform.ProcessInput(chip8_32.keypad);
         
+        // 디버그 모드 처리 - 개선된 버전
         if (debugger.isEnabled()) {
             uint32_t current_opcode = chip8_32.getCurrentOpcode();
             debugger.printState(current_opcode);
@@ -179,19 +210,33 @@ int ModeSelector::run_32bit_mode() {
         
         chip8_32.cycle();
         
+        // 타이머 업데이트
+        static uint32_t last_timer_update = 0;
+        uint32_t current_time = timer::get_ticks();
+        if (current_time - last_timer_update >= 16) {
+            if (chip8_32.delay_timer > 0) chip8_32.delay_timer--;
+            if (chip8_32.sound_timer > 0) chip8_32.sound_timer--;
+            last_timer_update = current_time;
+        }
+        
         if (chip8_32.needs_redraw()) {
             platform.Update(chip8_32.video, VIDEO_WIDTH * sizeof(uint32_t));
             chip8_32.clear_draw_flag();
         }
         
-        // timer::delay(g_debug_mode ? 50 : 2); // 주석 처리
+        // 60Hz 속도 제어
+        uint32_t frame_end = timer::get_ticks();
+        uint32_t elapsed = frame_end - frame_start;
+        if (elapsed < 16) {
+            timer::delay(16 - elapsed);
+        }
     }
     
     std::cout << "[INFO] 32-bit CHIP-8 emulator terminated" << std::endl;
     return 0;
 }
 
-std::string ModeSelector::get_file_extension(const std::string& filename) { //파일 확장자 선택 함수
+std::string ModeSelector::get_file_extension(const std::string& filename) {
     size_t dot_pos = filename.find_last_of('.');
     if (dot_pos == std::string::npos) {
         return "";

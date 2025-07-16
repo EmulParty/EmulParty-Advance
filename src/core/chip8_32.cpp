@@ -58,7 +58,6 @@ void Chip8_32::reset() {
     std::cout << "32-bit CHIP-8 system reset complete" << std::endl;
 }
 
-// chip8_32.cpp 파일에 추가할 LoadBuiltinFileManager 함수
 void Chip8_32::LoadBuiltinFileManager() {
     // FILE_MANAGER 부트로더 코드 (80바이트, 20개 명령어)
     static const uint32_t boot_rom[20] = {
