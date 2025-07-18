@@ -1,12 +1,16 @@
+// opcode_table_32.cpp - 헤더 파일 추가 및 SYSCALL 수정
 #include "opcode_table_32.hpp"
 #include "chip8_32.hpp"
+#include "mode_selector.hpp"  // 🔧 ModeSelector 헤더 추가!
+#include "timer.hpp"          // 🔧 timer::get_ticks() 사용을 위해 추가!
 #include <stdexcept>
 #include <iostream>
-#include <cstring> // memset, memcpy
-#include <random>  // for random operations, CXNN 
-#include <fstream>
+#include <cstring>  
+#include <random>   
+#include <fstream>  
 #include <vector>
 #include <map>
+#include <algorithm>
 
 namespace OpcodeTable_32 {
 
@@ -329,63 +333,73 @@ namespace OpcodeTable_32 {
     // R20 ~ R23 : 범용 시스템 레지스터 
     // R24 ~ R31 : 사용자 정의 
 
-    /// @brief SYSCALL 처리 (10SAAAAF) - 수정된 버전
+    /// @brief SYSCALL 처리 (10SAAAAF) - ModeSelector 호출 수정 버전
     void OP_10SAAAAF(Chip8_32& chip8_32, uint32_t opcode) {
-        uint8_t syscall_num = (opcode & 0x00F00000) >> 20;  // S (4비트)
-        uint16_t buffer_addr = (opcode & 0x000FFFF0) >> 4;  // AAAAA (16비트)
-        uint8_t fd = opcode & 0x0000000F;                   // F (4비트)
+        uint8_t syscall_num = (opcode & 0x00F00000) >> 20;  
+        uint16_t buffer_addr = (opcode & 0x000FFFF0) >> 4;  
+        uint8_t fd = opcode & 0x0000000F;                   
         
         std::cout << "\n=== SYSCALL ===" << std::endl;
         std::cout << "Syscall: " << static_cast<int>(syscall_num) 
                 << ", Buffer: 0x" << std::hex << buffer_addr 
                 << ", FD: " << std::dec << static_cast<int>(fd) << std::endl; 
         
-        // 주소 범위 체크 (오타 수정)
+        // 주소 범위 체크
         if (buffer_addr >= MEMORY_SIZE_32) {
             std::cerr << "Invalid buffer address: 0x" << std::hex << buffer_addr << std::endl;
-            chip8_32.set_R(16, 0xFFFFFFFF); // R16에 오류 코드
+            chip8_32.set_R(16, 0xFFFFFFFF);
             chip8_32.set_pc(chip8_32.get_pc() + 4);
             return;
         }
 
         switch (syscall_num) {
             case 0x0: {  // READ syscall
-                std::cout << "[READ] Reading from fd " << static_cast<int>(fd) << std::endl;
+                std::cout << "[read] Reading from fd " << static_cast<int>(fd) << std::endl;
                 
                 if (fd == 0) {  // stdin
-                    std::cout << "Enter text: ";
-                    std::string input;
-                    std::getline(std::cin, input);
-
-                    // R17에서 최대 읽기 크기 가져오기 (설정되지 않았으면 기본값 256)
+                    IOManager& io_manager = chip8_32.get_io_manager();
+                    
                     size_t max_size = chip8_32.get_R(17);
                     if (max_size == 0 || max_size > 1024) {
-                        max_size = 256;  // 기본값
+                        max_size = 256;
                     }
                     
-                    // 입력받은 문자열을 메모리에 저장 (괄호 수정)
-                    size_t bytes_to_write = std::min(input.length(), max_size - 1);    // null terminator 공간 확보
-                    for (size_t i = 0; i < bytes_to_write; ++i) {
-                        if (buffer_addr + i < MEMORY_SIZE_32) {  // 오타 수정
-                            chip8_32.set_memory(buffer_addr + i, static_cast<uint8_t>(input[i]));  // 괄호 수정
+                    char temp_buffer[1024];
+                    size_t bytes_read = io_manager.read(fd, temp_buffer, max_size - 1);
+                    
+                    if (bytes_read > 0) {
+                        for (size_t i = 0; i < bytes_read; ++i) {
+                            if (buffer_addr + i < MEMORY_SIZE_32) {
+                                chip8_32.set_memory(buffer_addr + i, static_cast<uint8_t>(temp_buffer[i]));
+                            }
+                        }
+                        
+                        if (buffer_addr + bytes_read < MEMORY_SIZE_32) {
+                            chip8_32.set_memory(buffer_addr + bytes_read, 0);
+                        }
+
+                        chip8_32.set_R(16, static_cast<uint32_t>(bytes_read));
+                        std::cout << "[read] Successfully read " << bytes_read << " bytes" << std::endl;
+                        chip8_32.set_pc(chip8_32.get_pc() + 4);
+                    } else {
+                        std::cout << "[read] No input available, retrying..." << std::endl;
+                        
+                        static uint32_t last_read_attempt = 0;
+                        uint32_t current_time = timer::get_ticks();
+                        
+                        if (current_time - last_read_attempt > 100) {
+                            last_read_attempt = current_time;
+                            std::cout << "[read] Waiting for SDL2 input... (Press F1 in game to enter input)" << std::endl;
+                        } else {
+                            chip8_32.set_pc(chip8_32.get_pc() + 4);
+                            chip8_32.set_R(16, 0);
                         }
                     }
                     
-                    // null terminator 추가
-                    if (buffer_addr + bytes_to_write < MEMORY_SIZE_32) {
-                        chip8_32.set_memory(buffer_addr + bytes_to_write, 0); 
-                    }
-
-                    // 반환값: R16에 읽은 바이트 수 
-                    chip8_32.set_R(16, static_cast<uint32_t>(bytes_to_write));
-
-                    std::cout << "[read] Read " << bytes_to_write << " bytes: \"" 
-                            << input.substr(0, 20) << (input.length() > 20 ? "..." : "") << "\"" << std::endl;
-                    std::cout << "[read] Return value in R16: " << bytes_to_write << std::endl;
-                    
                 } else {
                     std::cerr << "[read] Unsupported file descriptor: " << static_cast<int>(fd) << std::endl;
-                    chip8_32.set_R(16, 0xFFFFFFFF);  // R16에 오류 코드
+                    chip8_32.set_R(16, 0xFFFFFFFF);
+                    chip8_32.set_pc(chip8_32.get_pc() + 4);
                 }
                 break;
             }
@@ -394,23 +408,20 @@ namespace OpcodeTable_32 {
                 std::cout << "[write] Writing to fd " << static_cast<int>(fd) << std::endl;
                 
                 if (fd == 1 || fd == 2) {  // stdout, stderr
-                    // R17에서 쓸 크기 가져오기 (0이면 null-terminated 문자열로 처리)
                     size_t write_size = chip8_32.get_R(17);
                     
                     std::string output;
                     if (write_size == 0) {
-                        // null-terminated 문자열 처리
-                        for (size_t i = 0; i < 1024; ++i) {  // 최대 1KB
+                        for (size_t i = 0; i < 1024; ++i) {
                             if (buffer_addr + i >= MEMORY_SIZE_32) break;
                             
                             uint8_t byte = chip8_32.get_memory(buffer_addr + i);
-                            if (byte == 0) break;  // null terminator
+                            if (byte == 0) break;
                             
                             output += static_cast<char>(byte);
                         }
                     } else {
-                        // 고정 크기 데이터 처리
-                        write_size = std::min(write_size, static_cast<size_t>(1024));  // 최대 1KB 제한
+                        write_size = std::min(write_size, static_cast<size_t>(1024));
                         for (size_t i = 0; i < write_size; ++i) {
                             if (buffer_addr + i >= MEMORY_SIZE_32) break;
                             
@@ -419,96 +430,95 @@ namespace OpcodeTable_32 {
                         }
                     }
                     
-                    // 출력
-                    if (fd == 1) {
-                        std::cout << "[stdout] " << output << std::endl;
-                    } else {
-                        std::cerr << "[stderr] " << output << std::endl;
-                    }
+                    IOManager& io_manager = chip8_32.get_io_manager();
+                    size_t bytes_written = io_manager.write(fd, output.c_str(), output.length());
                     
-                    // 반환값: R16에 출력한 바이트 수
-                    chip8_32.set_R(16, static_cast<uint32_t>(output.length()));
-                    
-                    std::cout << "[write] Wrote " << output.length() << " bytes" << std::endl;
-                    std::cout << "[write] Return value in R16: " << output.length() << std::endl;
+                    chip8_32.set_R(16, static_cast<uint32_t>(bytes_written));
+                    std::cout << "[write] Wrote " << bytes_written << " bytes: " << output << std::endl;
                     
                 } else {
                     std::cerr << "[write] Unsupported file descriptor: " << static_cast<int>(fd) << std::endl;
-                    chip8_32.set_R(16, 0xFFFFFFFF);  // R16에 오류 코드
+                    chip8_32.set_R(16, 0xFFFFFFFF);
                 }
+                chip8_32.set_pc(chip8_32.get_pc() + 4);
                 break;
             }
             
-            case 0x2: {  // GETPID syscall (예시)
+            case 0x2: {  // GETPID syscall
                 std::cout << "[getpid] Returning fake PID" << std::endl;
-                chip8_32.set_R(16, 1234);  // 가짜 PID 반환
+                chip8_32.set_R(16, 1234);
+                chip8_32.set_pc(chip8_32.get_pc() + 4);
                 break;
             }
             
-            case 0x3: {  // EXIT syscall
-                uint32_t exit_code = chip8_32.get_R(17);
-                std::cout << "[exit] Exiting with code " << exit_code << std::endl;
-                // 실제로는 에뮬레이터 종료 플래그 설정
-                chip8_32.set_R(16, 0);  // 성공
-                break;
-            }
-            
-            case 0x4: {   // READ_FILE syscall
-                std::cout << "[read_file] Reading file from buffer" << std::endl;
-
-                // buffer_addr에서 파일명 읽기 (null-terminated)
+            case 0x3: {  // 🎯 **LOAD_ROM syscall - 수정된 버전**
+                std::cout << "[load_rom] Loading ROM with auto-mode detection" << std::endl;
+                
+                // 메모리에서 파일명 읽기
                 std::string filename;
                 for (size_t i = 0; i < 256; ++i) {
                     if (buffer_addr + i >= MEMORY_SIZE_32) break;
+                    
                     uint8_t byte = chip8_32.get_memory(buffer_addr + i);
-                    if (byte == 0) break;  // null terminator
+                    if (byte == 0) break;
+                    
                     filename += static_cast<char>(byte);
                 }
-
-                std::cout << "[read_file] Attempting to read: " << filename << std::endl;
-            
-                // 파일 읽어서 주소 0x200에 ROM 파일 로드 (기존 CHIP-8 게임 시작 위치 유지)
-                std::ifstream file(filename, std::ios::binary);
-                if (file.is_open()) {
-                    file.seekg(0, std::ios::end);
-                    size_t file_size = file.tellg();
-                    file.seekg(0, std::ios::beg);
-
-                    std::cout << "[read_file] File size: " << file_size << " bytes" << std::endl;
-
-                    size_t bytes_loaded = 0;
-                    for (size_t i = 0; i < file_size && (0x200 + i) < MEMORY_SIZE_32; ++i) {  //메모리 0x200부터 실제 실행 파일 적재
-                        char byte;
-                        file.read(&byte, 1);
-                        chip8_32.set_memory(0x200 + i, static_cast<uint8_t>(byte));
-                        bytes_loaded++;
+                
+                if (!filename.empty()) {
+                    std::cout << "[load_rom] File: " << filename << std::endl;
+                    
+                    // 🔧 **수정: ModeSelector::load_and_switch_mode 사용**
+                    bool success = ModeSelector::load_and_switch_mode(chip8_32, filename);
+                    
+                    if (success) {
+                        chip8_32.set_R(16, 0); // 성공
+                        
+                        // 모드별 분기 처리
+                        std::string extension = ModeSelector::get_file_extension(filename);
+                        
+                        if (extension == ".ch8" || extension == ".c8") {
+                            std::cout << "[load_rom] 8-bit ROM loaded, mode switch will occur" << std::endl;
+                            chip8_32.set_pc(chip8_32.get_pc() + 4);
+                            
+                        } else {
+                            std::cout << "[load_rom] 32-bit ROM loaded, jumping to 0x200" << std::endl;
+                            chip8_32.set_pc(0x200);
+                        }
+                        
+                    } else {
+                        chip8_32.set_R(16, 0xFFFFFFFF);
+                        chip8_32.set_pc(chip8_32.get_pc() + 4);
+                        std::cout << "[load_rom] Failed to load ROM" << std::endl;
                     }
-
-                    file.close();
-                    chip8_32.set_R(16, bytes_loaded);  // R16에 읽은 바이트 수 저장
-                    std::cout << "[read_file] Successfully loaded" << bytes_loaded << "bytes to 0x200" << std::endl; //0x800 -> 0x200
-                }  else {
-                    std::cerr << "[read_file] Failed to open file: " << filename << std::endl;
-                    chip8_32.set_R(16, 0xFFFFFFFF);  // 실패
+                    
+                } else {
+                    std::cout << "[load_rom] Empty filename" << std::endl;
+                    chip8_32.set_R(16, 0xFFFFFFFF);
+                    chip8_32.set_pc(chip8_32.get_pc() + 4);
                 }
                 break;
             }
+            
+            case 0x4: {  // EXIT syscall
+                uint32_t exit_code = chip8_32.get_R(17);
+                std::cout << "[exit] Exiting with code " << exit_code << std::endl;
+                chip8_32.set_R(16, 0);
+                chip8_32.set_pc(chip8_32.get_pc() + 4);
+                break;
+            }
+            
             default:
                 std::cerr << "[syscall] Unknown syscall: " << static_cast<int>(syscall_num) << std::endl;
-                chip8_32.set_R(16, 0xFFFFFFFF);  // R16에 오류 코드
+                chip8_32.set_R(16, 0xFFFFFFFF);
+                chip8_32.set_pc(chip8_32.get_pc() + 4);
                 break;
-        
         }
-        // 디버그 출력: 시스템 레지스터 상태
+        
         std::cout << "System registers after syscall:" << std::endl;
         std::cout << "  R16 (return): 0x" << std::hex << chip8_32.get_R(16) << std::dec << std::endl;
         std::cout << "  R17 (size):   0x" << std::hex << chip8_32.get_R(17) << std::dec << std::endl;
-        std::cout << "  R18 (param1): 0x" << std::hex << chip8_32.get_R(18) << std::dec << std::endl;
-        std::cout << "  R19 (param2): 0x" << std::hex << chip8_32.get_R(19) << std::dec << std::endl;
-
-        chip8_32.set_pc(chip8_32.get_pc() + 4);
     }
-
     /// @brief opcode 상위 8비트 기반으로 핸들러 함수 등록
     void Initialize() {
         primary_table_32.fill(nullptr);

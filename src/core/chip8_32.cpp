@@ -1,14 +1,18 @@
+// chip8_32.cpp - BootROM::load_into_memory() 제대로 사용하는 버전
+
 #include "chip8_32.hpp"
 #include "opcode_table_32.hpp"
-#include <cstring> // memset, memcpy
-#include <random>  // for CXNN
+#include "boot_rom.hpp"  // BootROM 헤더 포함
+#include "io_manager.hpp"
+#include "sdl_console_io.hpp"
+#include <cstring>
+#include <random>
 #include <fstream>
 #include <vector>
 #include <iostream>
 
 // 기본 폰트셋 (각 숫자는 4x5 픽셀로 구성됨)
-// 0x000 ~ 0x050 주소에 로드됨
-static const uint8_t chip8_fontset[80] = {
+static const uint8_t chip8_fontset_32[80] = {
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
     0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -27,63 +31,98 @@ static const uint8_t chip8_fontset[80] = {
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
 
-// 생성자 : reset() 호출로 초기화
+// BootROM 시작 주소 정의
+constexpr uint32_t BOOT_ROM_START = 0x0000;
+
+// 생성자: reset() 호출로 초기화
 Chip8_32::Chip8_32() {
     loaded_rom_size = 0;
     last_timer_update = 0;
+    platform_ptr_ = nullptr; // 초기화
     reset();
 }
 
 void Chip8_32::reset() {
-    pc = 0x000;  // 부트로더부터 시작!
+    pc = BOOT_ROM_START;  // 부트로더부터 시작!
     opcode = 0;
     I = 0;
     sp = 0;
 
-    memory.fill(0);
-    R.fill(0);
-    video.fill(0);
-    stack.fill(0);
-    keypad.fill(0);
+    // 메모리, 레지스터, 화면, 키보드 초기화
+    std::memset(memory.data(), 0, MEMORY_SIZE_32);
+    std::memset(R.data(), 0, sizeof(R));
+    std::memset(video.data(), 0, sizeof(video));
+    std::memset(stack.data(), 0, sizeof(stack));
+    std::memset(keypad.data(), 0, sizeof(keypad));
 
     delay_timer = 0;
     sound_timer = 0;
-
-    // 부트로더 로드 (0x000 ~ 0x04F)
-    LoadBuiltinFileManager();
-
-    std::memcpy(memory.data() + 0x50, chip8_fontset, sizeof(chip8_fontset));
+    loaded_rom_size = 0;
     draw_flag = false;
+    last_timer_update = 0;
 
+    // 폰트셋 로드 (0x050~0x09F)
+    std::memcpy(&memory[0x050], chip8_fontset_32, sizeof(chip8_fontset_32));
+
+    // ★ 기존 BootROM 함수 사용!
+    load_boot_rom();
+
+    draw_flag = false;
+    
     std::cout << "32-bit CHIP-8 system reset complete" << std::endl;
 }
 
-void Chip8_32::LoadBuiltinFileManager() {
-    // FILE_MANAGER 부트로더 코드 (80바이트, 20개 명령어)
-    static const uint32_t boot_rom[20] = {
-        0x0A000000, 0x12000050, 0x0A000001, 0x12000060, 0x0A000002, 0x12000070,
-        0x0A000003, 0x12000080, 0x0A000004, 0x12000090, 0x0A000005, 0x120000A0,
-        0x0A000006, 0x120000B0, 0x0A000007, 0x120000C0, 0x0A000008, 0x120000D0,
-        0x0A000009, 0x120000E0
-    };
-
-    std::cout << "[BOOT] Loading built-in FILE_MANAGER..." << std::endl;
-    std::cout << "[BOOT] FILE_MANAGER loaded (80 bytes at 0x000-0x04F)" << std::endl;
-    std::cout << "[BOOT] Prompt message at 0xA0: \"Enter filename: \"" << std::endl;
-    std::cout << "[BOOT] Input buffer at 0xC0 (64 bytes)" << std::endl;
-    std::cout << "[BOOT] Font data at 0x050-0x09F" << std::endl;
-    std::cout << "[BOOT] Game ROM area: 0x200-0xFFFF" << std::endl;
-    std::cout << "[BOOT] Ready to boot from 0x000!" << std::endl;
-
-    // 안전하게 20개 명령어 로드
-    for(int i = 0; i < 20; ++i) {
-        memory[0x000 + i*4 + 0] = (boot_rom[i] >> 24) & 0xFF;
-        memory[0x000 + i*4 + 1] = (boot_rom[i] >> 16) & 0xFF;
-        memory[0x000 + i*4 + 2] = (boot_rom[i] >> 8) & 0xFF;
-        memory[0x000 + i*4 + 3] = boot_rom[i] & 0xFF;
-    }
+// Platform 설정 함수 추가
+void Chip8_32::setPlatform(Platform* platform) {
+    platform_ptr_ = platform;
+    std::cout << "[Chip8_32] Platform pointer set: " << platform << std::endl;
+    
+    // IOManager 재설정
+    setup_io_devices();
 }
 
+// 수정된 setup_io_devices 함수
+void Chip8_32::setup_io_devices() {
+    std::cout << "[Chip8_32] Setting up I/O devices..." << std::endl;
+    
+    // 기존 장치들 정리
+    io_manager_.clear();
+    
+    // SDL 콘솔 I/O 장치 생성 (Platform 포인터 사용)
+    console_io_ = std::make_shared<SDLConsoleIO>(platform_ptr_);
+    
+    // 표준 파일 디스크립터에 등록
+    io_manager_.registerDevice(0, console_io_);  // stdin
+    io_manager_.registerDevice(1, console_io_);  // stdout  
+    io_manager_.registerDevice(2, console_io_);  // stderr
+    
+    // 등록된 장치 목록 출력
+    io_manager_.printDevices();
+    
+    std::cout << "[INFO] IOManager initialized with SDL console I/O" << std::endl;
+}
+
+// IOManager 접근 함수
+IOManager& Chip8_32::get_io_manager() {
+    return io_manager_;
+}
+
+// SDLConsoleIO 접근 함수 추가
+std::shared_ptr<SDLConsoleIO> Chip8_32::get_console_io() {
+    return console_io_;
+}
+
+// ★ 핵심: 기존 boot_rom.cpp의 함수를 사용!
+void Chip8_32::load_boot_rom() {
+    std::cout << "[Chip8_32] Loading Boot ROM using BootROM::load_into_memory()..." << std::endl;
+    
+    // boot_rom.cpp에 정의된 함수 사용
+    BootROM::load_into_memory(*this);
+    
+    std::cout << "[Chip8_32] Boot ROM loaded successfully" << std::endl;
+}
+
+// 나머지 기존 함수들...
 bool Chip8_32::load_rom(const char* filename) {
     std::ifstream rom(filename, std::ios::binary | std::ios::ate);
     if (!rom.is_open()) {

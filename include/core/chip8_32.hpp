@@ -1,11 +1,15 @@
 #pragma once
-
 #include <array>
 #include <cstdint>
 #include <cstddef>
+#include <memory>
 #include "common/constants.hpp"
 #include "timer.hpp"
+#include "io_manager.hpp"
 
+// 전방 선언
+class Platform;
+class SDLConsoleIO;
 
 // CHIP-8 확장 버전은 우선 64KB 메모리를 사용합니다. 
 constexpr unsigned int MEMORY_SIZE_32 = 65536;
@@ -33,8 +37,13 @@ private:
     size_t loaded_rom_size; 
     uint32_t last_timer_update = 0;
 
-    void LoadBuiltinFileManager(); // 부트로더 로드 함수 선언
-    
+    IOManager io_manager_; // I/O 장치 관리자
+    Platform* platform_ptr_; // Platform 포인터 추가
+    std::shared_ptr<SDLConsoleIO> console_io_; // SDLConsoleIO 인스턴스
+
+    void load_boot_rom();
+    void setup_io_devices(); // Platform 의존적이므로 private
+
 public:
     Chip8_32(); // 생성자: 초기화 수행
 
@@ -59,6 +68,9 @@ public:
     uint8_t delay_timer;
     uint8_t sound_timer;
 
+    // Platform 설정 함수 추가
+    void setPlatform(Platform* platform);
+
     // 프로그램 카운터
     uint32_t get_pc() const { return pc; }
     void set_pc(uint32_t value) { pc = value; }
@@ -67,7 +79,7 @@ public:
     uint32_t get_R(int index) const { return R.at(index); }
     void set_R(int index, uint32_t value) { R.at(index) = value; }
 
-    // 메모리 접근 (주소는 32비트, 데이터는 8비트 유지)  <- 재검토
+    // 메모리 접근 (주소는 32비트, 데이터는 8비트 유지)
     uint8_t get_memory(int index) const { return memory.at(index); }
     void set_memory(int index, uint8_t value) { memory.at(index) = value; }
 
@@ -88,7 +100,7 @@ public:
     void set_video(int index, uint8_t value) { video.at(index) = value; }
 
     // 키보드
-    bool get_key(int index) const { return keypad.at(index); }
+    uint8_t get_key(int index) const { return keypad.at(index); }  // bool → uint8_t
     void set_key(int index, uint8_t value) { keypad.at(index) = value; }
 
     // 사운드 타이머
@@ -107,4 +119,10 @@ public:
     uint32_t getCurrentOpcode() const {
         return opcode;
     }
+    
+    // IOManager 접근 함수
+    IOManager& get_io_manager();
+    
+    // SDLConsoleIO 접근 함수
+    std::shared_ptr<SDLConsoleIO> get_console_io();
 };
