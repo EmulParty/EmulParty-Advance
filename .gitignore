@@ -18,6 +18,7 @@ Makefile
 
 # 실행 파일 및 임시 ROM
 chip8
+chip8_dual
 tmp.ch32
 
 # 편집기/IDE 생성 파일
@@ -32,3 +33,72 @@ tmp.ch32
 # 백업 파일
 *~
 
+# ===== 새로 추가된 항목들 =====
+
+# Python 관련 파일 (ROM 생성기)
+*.py
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv/
+
+# ROM 생성기 및 도구들
+*_generator.py
+*_creator.py
+generate_*.py
+create_*.py
+rom_maker.py
+sum_rom_generator.py
+
+# 자동 생성된 ROM 파일들 (수동으로 만든 ROM은 유지)
+sum.ch32
+test_*.ch32
+auto_*.ch32
+generated_*.ch32
+
+# 임시 바이너리 파일들
+*.tmp.ch32
+*.temp.ch32
+*.debug.ch32
+
+# 개발/디버깅용 파일들
+debug_*.txt
+trace_*.log
+dump_*.hex
+memory_*.bin
+
+# IDE 및 에디터 관련
+.vscode/
+.idea/
+*.sublime-*
+.clangd/
+
+# 로그 및 크래시 덤프
+crash_*.log
+core.*
+*.dmp
+
+# 성능 분석 파일
+*.prof
+*.gprof
+callgrind.out.*
+
+# 문서 생성 임시 파일
+*.aux
+*.bbl
+*.blg
+*.dvi
+*.fdb_latexmk
+*.fls
+*.idx
+*.ilg
+*.ind
+*.lof
+*.lot
+*.out
+*.toc
