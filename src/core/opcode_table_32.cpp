@@ -1,8 +1,9 @@
-// opcode_table_32.cpp - 헤더 파일 추가 및 SYSCALL 수정
 #include "opcode_table_32.hpp"
 #include "chip8_32.hpp"
-#include "mode_selector.hpp"  // 🔧 ModeSelector 헤더 추가!
-#include "timer.hpp"          // 🔧 timer::get_ticks() 사용을 위해 추가!
+#include "mode_selector.hpp"  //  ModeSelector 헤더 추가!
+#include "timer.hpp"          //  timer::get_ticks() 사용을 위해 추가!
+#include "stack_opcodes.hpp"   //  스택 관련 명령어를 사용하기 위해 추가!
+#include "stack_frame.hpp"
 #include <stdexcept>
 #include <iostream>
 #include <cstring>  
@@ -519,6 +520,77 @@ namespace OpcodeTable_32 {
         std::cout << "  R16 (return): 0x" << std::hex << chip8_32.get_R(16) << std::dec << std::endl;
         std::cout << "  R17 (size):   0x" << std::hex << chip8_32.get_R(17) << std::dec << std::endl;
     }
+
+    void OP_11XXXXXX(Chip8_32& chip8_32, uint32_t opcode) {
+        uint8_t sub_opcode = (opcode & 0x00FF0000) >> 16;  // 상위 8비트에서 세부 명령어 구분
+        
+        switch (sub_opcode) {
+            // 기본 스택 조작 (0x1100xxxx)
+            case 0x00: {
+                uint8_t detail = (opcode & 0x0000FF00) >> 8;
+                if (detail == 0x00) {
+                    StackOpcodes::OP_PUSH_RBP(chip8_32, opcode);  // 0x11000000
+                } else {
+                    StackOpcodes::OP_PUSH_RX(chip8_32, opcode);   // 0x1100RRXX
+                }
+                break;
+            }
+            case 0x01: {
+                uint8_t detail = (opcode & 0x0000FF00) >> 8;
+                if (detail == 0x00) {
+                    StackOpcodes::OP_POP_RBP(chip8_32, opcode);   // 0x11010000
+                } else {
+                    StackOpcodes::OP_POP_RX(chip8_32, opcode);    // 0x1101RRXX
+                }
+                break;
+            }
+            
+            // 프레임 포인터 조작 (0x1102xxxx, 0x1103xxxx)
+            case 0x02:
+                StackOpcodes::OP_MOV_RBP_RSP(chip8_32, opcode);   // 0x11020000
+                break;
+            case 0x03:
+                StackOpcodes::OP_MOV_RSP_RBP(chip8_32, opcode);   // 0x11030000
+                break;
+            
+            // 스택 포인터 조작 (0x1104xxxx, 0x1105xxxx)
+            case 0x04:
+                StackOpcodes::OP_SUB_RSP(chip8_32, opcode);       // 0x1104NNNN
+                break;
+            case 0x05:
+                StackOpcodes::OP_ADD_RSP(chip8_32, opcode);       // 0x1105NNNN
+                break;
+            
+            // 함수 호출/반환 (0x1106xxxx, 0x1107xxxx)
+            case 0x06:
+                StackOpcodes::OP_CALL_FUNC(chip8_32, opcode);     // 0x1106NNNN
+                break;
+            case 0x07:
+                StackOpcodes::OP_RET_FUNC(chip8_32, opcode);      // 0x11070000
+                break;
+            
+            // 스택 메모리 접근 (0x1108xxxx - 0x110Bxxxx)
+            case 0x08:
+                StackOpcodes::OP_MOV_RBP_MINUS_RX(chip8_32, opcode);  // 0x1108RRNN
+                break;
+            case 0x09:
+                StackOpcodes::OP_MOV_RX_RBP_MINUS(chip8_32, opcode);  // 0x1109RRNN
+                break;
+            case 0x0A:
+                StackOpcodes::OP_MOV_RBP_PLUS_RX(chip8_32, opcode);   // 0x110ARRNN
+                break;
+            case 0x0B:
+                StackOpcodes::OP_MOV_RX_RBP_PLUS(chip8_32, opcode);   // 0x110BRRNN
+                break;
+                
+            default:
+                std::cerr << "Unknown stack opcode: 0x" << std::hex << opcode << "\n";
+                chip8_32.set_pc(chip8_32.get_pc() + 4);
+                break;
+        }
+    };
+
+
     /// @brief opcode 상위 8비트 기반으로 핸들러 함수 등록
     void Initialize() {
         primary_table_32.fill(nullptr);
@@ -551,6 +623,7 @@ namespace OpcodeTable_32 {
         primary_table_32[0x0E] = OP_0EXXCCCC;  // 키 입력 조건 분기
         primary_table_32[0x0F] = OP_0FXXCCCC;  // Fx 계열 (타이머/메모리 함수) 확장 명령들 처리
         primary_table_32[0x10] = OP_10SAAAAF;  // SYSCALL 처리
+        primary_table_32[0x11] = OP_11XXXXXX;  // 스택 프레임 명령어 핸들러
     }
 
     /// @brief opcode를 상위 8비트로 분기하여 실행
