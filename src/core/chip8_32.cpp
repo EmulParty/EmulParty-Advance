@@ -5,6 +5,7 @@
 #include "boot_rom.hpp"  // BootROM 헤더 포함
 #include "io_manager.hpp"
 #include "sdl_console_io.hpp"
+#include "stack_frame.hpp"
 #include <cstring>
 #include <random>
 #include <fstream>
@@ -64,13 +65,16 @@ void Chip8_32::reset() {
     // 폰트셋 로드 (0x050~0x09F)
     std::memcpy(&memory[0x050], chip8_fontset_32, sizeof(chip8_fontset_32));
 
-    // ★ 기존 BootROM 함수 사용!
+    // BootROM 로드
     load_boot_rom();
+    // 스택 프레임 시스템 초기화
+    StackFrame::initialize(*this);
 
     draw_flag = false;
-    
     std::cout << "32-bit CHIP-8 system reset complete" << std::endl;
 }
+
+
 
 // Platform 설정 함수 추가
 void Chip8_32::setPlatform(Platform* platform) {
@@ -122,7 +126,6 @@ void Chip8_32::load_boot_rom() {
     std::cout << "[Chip8_32] Boot ROM loaded successfully" << std::endl;
 }
 
-// 나머지 기존 함수들...
 bool Chip8_32::load_rom(const char* filename) {
     std::ifstream rom(filename, std::ios::binary | std::ios::ate);
     if (!rom.is_open()) {
@@ -172,6 +175,62 @@ void Chip8_32::cycle() {
         if (sound_timer > 0) --sound_timer;
         last_timer_update = current_time;
     }
+}
+
+/**
+ * @brief 스택 프레임 정보 출력 (디버깅용)
+ */
+void Chip8_32::print_stack_info() const {
+    StackFrame::print_stack_frame(*this);
+}
+
+/**
+ * @brief 스택 메모리 덤프 (디버깅용)
+ * @param range 덤프할 범위 (기본값: 현재 스택 프레임 주변)
+ */
+void Chip8_32::dump_stack(uint32_t range) const {
+    uint32_t rsp = get_R(StackFrame::RSP_INDEX);
+    uint32_t rbp = get_R(StackFrame::RBP_INDEX);
+    
+    uint32_t start = std::max(rsp - range, static_cast<uint32_t>(StackFrame::STACK_END));
+    uint32_t end = std::min(rbp + range, static_cast<uint32_t>(StackFrame::STACK_START));
+    
+    StackFrame::dump_stack_memory(*this, start, end);
+}
+
+/**
+ * @brief RBP 레지스터 접근자
+ */
+uint32_t Chip8_32::get_RBP() const {
+    return get_R(StackFrame::RBP_INDEX);
+}
+
+void Chip8_32::set_RBP(uint32_t value) {
+    set_R(StackFrame::RBP_INDEX, value);
+}
+
+/**
+ * @brief RSP 레지스터 접근자  
+ */
+uint32_t Chip8_32::get_RSP() const {
+    return get_R(StackFrame::RSP_INDEX);
+}
+
+void Chip8_32::set_RSP(uint32_t value) {
+    set_R(StackFrame::RSP_INDEX, value);
+}
+
+/**
+ * @brief RIP 레지스터 접근자 (pc와 동기화)
+ */
+uint32_t Chip8_32::get_RIP() const {
+    return get_R(StackFrame::RIP_INDEX);
+}
+
+void Chip8_32::set_RIP(uint32_t value) {
+    set_R(StackFrame::RIP_INDEX, value);
+    // pc와 동기화
+    pc = value;
 }
 
 bool Chip8_32::needs_redraw() const { return draw_flag; }
