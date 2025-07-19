@@ -87,13 +87,36 @@ public:
     uint32_t get_I() const { return I; }
     void set_I(uint32_t value) { I = value; }
 
-    // 스택
+    // 스택 - 기존 32비트 ROM과 호환성을 위해서
     uint32_t get_stack(int index) const { return stack.at(index); }
     void set_stack(int index, uint32_t value) { stack.at(index) = value; }
 
-    // 스택 포인터
+    // 스택 포인터 - 기존 32비트 ROM과 호환성을 위해서
     uint8_t get_sp() const { return sp; }
     void set_sp(uint8_t value) { sp = value; }
+
+     /**
+     * @brief 스택 프레임 정보 출력 (디버깅용)
+     */
+    void print_stack_info() const;
+    
+    /**
+     * @brief 스택 메모리 덤프 (디버깅용)
+     * @param range 덤프할 범위 (기본값: 64바이트)
+     */
+    void dump_stack(uint32_t range = 64) const;
+    
+    // RBP (R28) 레지스터 접근자
+    uint32_t get_RBP() const;
+    void set_RBP(uint32_t value);
+    
+    // RSP (R29) 레지스터 접근자
+    uint32_t get_RSP() const;
+    void set_RSP(uint32_t value);
+    
+    // RIP (R30) 레지스터 접근자 (pc와 동기화)
+    uint32_t get_RIP() const;
+    void set_RIP(uint32_t value);
 
     // 비디오 메모리
     uint8_t get_video(int index) const { return video.at(index); }
