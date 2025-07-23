@@ -4,6 +4,8 @@
 #include "timer.hpp"          //  timer::get_ticks() 사용을 위해 추가!
 #include "stack_opcodes.hpp"   //  스택 관련 명령어를 사용하기 위해 추가!
 #include "stack_frame.hpp"
+#include "sdl_console_io.hpp"  
+#include "platform.hpp"      
 #include <stdexcept>
 #include <iostream>
 #include <cstring>  
@@ -535,7 +537,29 @@ namespace OpcodeTable_32 {
                 chip8_32.set_pc(chip8_32.get_pc() + 4);
                 break;
             }
-            
+
+            case 0x5: {
+                std::cout << "[syscall] Entering calculator mode" << std::endl;
+                // IOManager → SDLConsoleIO → Platform 경로로 접근
+                auto console_io = chip8_32.get_console_io();
+                if (console_io) {
+                    Platform* platform = console_io->getPlatform();
+                    if (platform) {
+                        platform->SwitchToCalculatorMode();
+                        chip8_32.set_R(16, 0);  // 성공 코드
+                        std::cout << "[Calculator] Calculator mode activated successfully" << std::endl;
+                    } else {
+                        std::cerr << "[Calculator] Platform not available" << std::endl;
+                        chip8_32.set_R(16, 0xFFFFFFFF);  // 실패 코드
+                    }
+                } else {
+                    std::cerr << "[Calculator] Console I/O not available" << std::endl;
+                    chip8_32.set_R(16, 0xFFFFFFFF);  // 실패 코드
+                }
+                chip8_32.set_pc(chip8_32.get_pc() + 4);
+                break;
+            }
+
             default:
                 std::cerr << "[syscall] Unknown syscall: " << static_cast<int>(syscall_num) << std::endl;
                 chip8_32.set_R(16, 0xFFFFFFFF);

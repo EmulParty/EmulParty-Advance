@@ -39,6 +39,7 @@ size_t SDLConsoleIO::read(char* buffer, size_t size) {
         std::cout << "[SDLConsoleIO] Switching to console mode for stack frame input..." << std::endl;
         platform_->SwitchToConsoleMode();
 
+
         // 🔧 **수정: 콘솔 입력이 들어올 때까지 SDL 이벤트 처리 루프**
         while (!platform_->IsConsoleInputReady()) {
             platform_->ProcessEvents();

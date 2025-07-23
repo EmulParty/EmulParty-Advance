@@ -239,9 +239,9 @@ void Platform::ProcessEvents() {
                 break;
             }
             case InputMode::CALCULATOR:
-                // 계산기 모드 이벤트 처리
                 ProcessCalculatorInput(event);
                 break;
+            
         }
     }
 }

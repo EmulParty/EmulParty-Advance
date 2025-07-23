@@ -7,6 +7,7 @@
 #include "platform.hpp"
 #include "timer.hpp"
 #include "debugger/debugger.hpp"
+#include "sdl_console_io.hpp"
 #include <iostream>
 #include <algorithm>
 #include <fstream>
@@ -66,7 +67,7 @@ int ModeSelector::run_unified_bootrom_mode() {
     while (!quit) {
         uint32_t frame_start = timer::get_ticks();
         
-        // 🔧 **핵심 수정: 실제 키패드 전달**
+        // 핵심 수정: 실제 키패드 전달
         quit = platform.ProcessInput(chip8_32.keypad);
         
         if (debugger32.isEnabled()) {
@@ -95,10 +96,12 @@ int ModeSelector::run_unified_bootrom_mode() {
             last_timer_update = current_time;
         }
         
+        // needs_redraw() 체크 없이 매 프레임마다 업데이트
+        platform.Update(chip8_32.video, VIDEO_WIDTH * sizeof(uint32_t));
         if (chip8_32.needs_redraw()) {
-            platform.Update(chip8_32.video, VIDEO_WIDTH * sizeof(uint32_t));
             chip8_32.clear_draw_flag();
         }
+    
         
         // 60Hz 속도 제어
         uint32_t frame_end = timer::get_ticks();
@@ -195,7 +198,7 @@ int ModeSelector::run_8bit_mode_after_bootrom(Platform& platform) {
 }
 
 
-// 🎯 **SYSCALL에서 호출할 모드 전환 함수**
+// **SYSCALL에서 호출할 모드 전환 함수**
 bool ModeSelector::load_and_switch_mode(Chip8_32& chip8_32, const std::string& filename) {
     std::string extension = get_file_extension(filename);
     std::string full_path = "../roms/" + filename;
@@ -228,17 +231,12 @@ bool ModeSelector::load_and_switch_mode(Chip8_32& chip8_32, const std::string& f
         // 8비트 모드 전환 플래그 설정 (ROM 데이터는 전역변수에 저장됨)
         g_switched_to_8bit = true;
         return true;
-        
     } else if (extension == ".ch32" || extension == ".c32") {
         std::cout << "[BootROM] → Continuing in 32-bit Extended mode" << std::endl;
-        
-        // 32비트 모드 유지 - 직접 32비트 시스템에 로드
         return chip8_32.load_rom(full_path.c_str());
         
     } else {
         std::cout << "[BootROM] → Unknown extension, trying 8-bit mode" << std::endl;
-        
-        // 기본적으로 8비트 모드로 전환
         g_switched_to_8bit = true;
         return true;
     }
