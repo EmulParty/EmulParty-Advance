@@ -1,13 +1,17 @@
-#include "../../include/core/opcode_table_32.hpp"
-#include "../../include/core/chip8_32.hpp"
-#include "../../include/core/stack_frame.hpp"
-
+#include "opcode_table_32.hpp"
+#include "chip8_32.hpp"
+#include "mode_selector.hpp"  //  ModeSelector 헤더 추가!
+#include "timer.hpp"          //  timer::get_ticks() 사용을 위해 추가!
+#include "stack_opcodes.hpp"   //  스택 관련 명령어를 사용하기 위해 추가!
+#include "stack_frame.hpp"
 #include <stdexcept>
 #include <iostream>
-#include <cstring> // memset, memcpy
-#include <random>  // for random operations, CXNN 
-#include <fstream>
+#include <cstring>  
+#include <random>   
+#include <fstream>  
 #include <vector>
+#include <map>
+#include <algorithm>
 
 namespace OpcodeTable_32 {
 
@@ -66,7 +70,7 @@ namespace OpcodeTable_32 {
         uint32_t kk = static_cast<uint32_t>(opcode & 0x0000FFFF);    // 16비트 상수
         uint32_t reg_val = chip8_32.get_R(x);                        // 32비트 레지스터 값
         
-        // 💥 원본 CHIP-8과 같은 비교 방식: 하위 16비트만 비교
+        // 원본 CHIP-8과 같은 비교 방식: 하위 16비트만 비교
         bool equal = ((reg_val & 0xFFFF) == kk);
         
         std::cout << "[DEBUG] OP_03XXKKKK: R[" << static_cast<int>(x) << "]="
@@ -132,7 +136,7 @@ namespace OpcodeTable_32 {
                 chip8_32.set_R(x, static_cast<uint32_t>(sum));
                 break;
             }
-            case 0x05:     // SUB with borrow - 💥 수정: 플래그 반전
+            case 0x05:     // SUB with borrow -  수정: 플래그 반전
                 chip8_32.set_R(15, rx >= ry ? 1 : 0);  // borrow 플래그 (원본과 반대)
                 chip8_32.set_R(x, rx - ry);
                 break;
@@ -140,7 +144,7 @@ namespace OpcodeTable_32 {
                 chip8_32.set_R(15, rx & 0x1);  // LSB를 R15에 저장
                 chip8_32.set_R(x, rx >> 1);
                 break;
-            case 0x07:     // SUBN (Ry - Rx) - 💥 수정: 플래그 반전
+            case 0x07:     // SUBN (Ry - Rx)
                 chip8_32.set_R(15, ry >= rx ? 1 : 0);  // borrow flag (원본과 반대)
                 chip8_32.set_R(x, ry - rx);
                 break;
@@ -175,18 +179,18 @@ namespace OpcodeTable_32 {
     void OP_0CXXKKKK(Chip8_32& chip8_32, uint32_t opcode) {
         uint8_t x = (opcode & 0x00FF0000) >> 16;  // 레지스터 인덱스
         uint32_t mask = static_cast<uint32_t>(opcode & 0x0000FFFF);      // 16비트 마스크
-        uint32_t rand_val = static_cast<uint32_t>(rand() & 0xFFFF);  // 💥 수정: 16비트 랜덤값
+        uint32_t rand_val = static_cast<uint32_t>(rand() & 0xFFFF);  //  수정: 16비트 랜덤값
 
         chip8_32.set_R(x, rand_val & mask);
         chip8_32.set_pc(chip8_32.get_pc() + 4);
     }
 
-    /// @brief 스프라이트 그리기 (0DXXYYNN) - 💥 주요 수정
+    /// @brief 스프라이트 그리기 (0DXXYYNN) -  주요 수정
     void OP_0DXXYYNN(Chip8_32& chip8_32, uint32_t opcode) {
         uint8_t reg_x = (opcode & 0x00FF0000) >> 16;
         uint8_t reg_y = (opcode & 0x0000FF00) >> 8;
 
-        // 💥 수정: 하위 8비트만 사용 (원본 CHIP-8과 동일)
+        //  수정: 하위 8비트만 사용 (원본 CHIP-8과 동일)
         uint8_t x = static_cast<uint8_t>(chip8_32.get_R(reg_x) & 0xFF) % VIDEO_WIDTH;   
         uint8_t y = static_cast<uint8_t>(chip8_32.get_R(reg_y) & 0xFF) % VIDEO_HEIGHT;  
 
@@ -203,12 +207,12 @@ namespace OpcodeTable_32 {
             uint8_t sprite = chip8_32.get_memory(addr);
             for (int col = 0; col < 8; ++col) {
                 if (sprite & (0x80 >> col)) {
-                    // 💥 수정: 화면 경계 처리 개선
+                    //  수정: 화면 경계 처리 개선
                     uint8_t pixel_x = (x + col) % VIDEO_WIDTH;
                     uint8_t pixel_y = (y + row) % VIDEO_HEIGHT;
                     uint32_t video_idx = pixel_y * VIDEO_WIDTH + pixel_x;
 
-                    // 💥 수정: 충돌 감지 로직 개선
+                    //  수정: 충돌 감지 로직 개선
                     if (chip8_32.get_video(video_idx) != 0) {
                         chip8_32.set_R(15, 1); // 충돌 감지
                     }
@@ -277,20 +281,20 @@ namespace OpcodeTable_32 {
             case 0x0108:   // Fx18 -> 0FXX0108 (Set Sound Timer) 
                 chip8_32.set_sound_timer(chip8_32.get_R(x) & 0xFF);  
                 break;
-            case 0x010E:   // Fx1E -> 0FXX010E (Add to I) - 💥 수정
+            case 0x010E:   // Fx1E -> 0FXX010E (Add to I) -  수정
             {
                 uint32_t sum = chip8_32.get_I() + (chip8_32.get_R(x) & 0xFFFF);
-                // 💥 오버플로우 플래그 설정 (16비트 주소 공간에서)
+                //  오버플로우 플래그 설정 (16비트 주소 공간에서)
                 chip8_32.set_R(15, (sum > 0xFFFF) ? 1 : 0);
                 chip8_32.set_I(sum & 0xFFFF);  // 16비트로 제한
                 break;
             }
             case 0x0209:     // FX29 -> 0FXX0209 (Set I to Font Address)
-                // 💥 수정: 0x50부터 시작
+                //  수정: 0x50부터 시작
                 chip8_32.set_I(0x50 + ((chip8_32.get_R(x) & 0xF) * 5));
                 break;
             case 0x0303: {  // FX33 -> 0FXX0303 (BCD 변환)
-                uint32_t value = chip8_32.get_R(x) & 0xFF;  // 💥 수정: 하위 8비트만 사용
+                uint32_t value = chip8_32.get_R(x) & 0xFF;  //  수정: 하위 8비트만 사용
                 chip8_32.set_memory(chip8_32.get_I(), value / 100);
                 chip8_32.set_memory(chip8_32.get_I() + 1, (value / 10) % 10);
                 chip8_32.set_memory(chip8_32.get_I() + 2, value % 10);
@@ -304,12 +308,12 @@ namespace OpcodeTable_32 {
                           << "]=" << (value % 10) << std::dec << std::endl;
                 break;
             }
-            case 0x0505:  // FX55 -> 0FXX0505 (Registers 값들 저장) - 💥 수정
+            case 0x0505:  // FX55 -> 0FXX0505 (Registers 값들 저장) -  수정
                 for (int i = 0; i <= x && i < 16; ++i) {  // 원본과 호환을 위해 16개 레지스터만 사용
                     chip8_32.set_memory(chip8_32.get_I() + i, chip8_32.get_R(i) & 0xFF);  // 8비트만 저장
                 } 
                 break;
-            case 0x0605:  // FX65 -> 0FXX0605 (레지스터 로드) - 💥 수정
+            case 0x0605:  // FX65 -> 0FXX0605 (레지스터 로드) -  수정
                 for (int i = 0; i <= x && i < 16; ++i) {  // 원본과 호환을 위해 16개 레지스터만 사용
                     chip8_32.set_R(i, chip8_32.get_memory(chip8_32.get_I() + i));  // 8비트 값을 32비트 레지스터에
                 }
@@ -318,109 +322,305 @@ namespace OpcodeTable_32 {
         chip8_32.set_pc(chip8_32.get_pc() + 4);
     }
 
-    /// @brief CALL_FRAME - 스택 프레임 생성 (11RRAAAA)
-    /// R = 레지스터 인덱스, AAAA = 함수 주소
-    void OP_11RRAAAA(Chip8_32& chip8_32, uint32_t opcode) {
-        uint8_t reg = (opcode & 0x00FF0000) >> 16;    // 레지스터 인덱스
-        uint32_t func_addr = opcode & 0x0000FFFF;     // 함수 주소 (16비트)
+    // 32비트 CHIP-8 레지스터 사용 규칙 : 
+    // R0 ~ R15 : 8비트 CHIP-8 호환 (V0 ~ VF와 대응)
+    // R16 ~ R31 : 32비트 확장 전용 레지스터
+
+    // 시스템콜 규약 : 
+    // R16 : 반환 값 / 오류 코드 (성공 : 0 이상, 실패 : 0xFFFFFFFF)
+    // R17 : 크기 / 길이 매개 변수
+    // R18 : 추가 매개 변수 1 
+    // R19 : 추가 매개 변수 2
+    // R20 ~ R23 : 범용 시스템 레지스터 
+    // R24 ~ R31 : 사용자 정의 
+
+    /// @brief SYSCALL 처리 (10SAAAAF) - ModeSelector 호출 수정 버전
+    void OP_10SAAAAF(Chip8_32& chip8_32, uint32_t opcode) {
+        uint8_t syscall_num = (opcode & 0x00F00000) >> 20;  
+        uint16_t buffer_addr = (opcode & 0x000FFFF0) >> 4;  
+        uint8_t fd = opcode & 0x0000000F;                   
         
-        std::cout << "\n=== CALL_FRAME ===" << std::endl;
-        std::cout << "Target register: R" << static_cast<int>(reg) << std::endl;
-        std::cout << "Function address: 0x" << std::hex << func_addr << std::dec << std::endl;
+        std::cout << "\n=== SYSCALL ===" << std::endl;
+        std::cout << "Syscall: " << static_cast<int>(syscall_num) 
+                << ", Buffer: 0x" << std::hex << buffer_addr 
+                << ", FD: " << std::dec << static_cast<int>(fd) << std::endl; 
         
-        // 현재 PC + 4를 반환 주소로 설정
-        uint32_t return_addr = chip8_32.get_pc() + 4;
-        uint32_t current_fp = chip8_32.get_current_frame_pointer();
-        
-        // 새 스택 프레임 생성
-        if (!chip8_32.get_frame_manager().create_frame(return_addr, current_fp)) {
-            std::cerr << "[CALL_FRAME] Failed to create stack frame!" << std::endl;
+        // 주소 범위 체크
+        if (buffer_addr >= MEMORY_SIZE_32) {
+            std::cerr << "Invalid buffer address: 0x" << std::hex << buffer_addr << std::endl;
+            chip8_32.set_R(16, 0xFFFFFFFF);
             chip8_32.set_pc(chip8_32.get_pc() + 4);
             return;
         }
+
+        switch (syscall_num) {
+            case 0x0: {  // READ syscall
+                std::cout << "[read] Reading from fd " << static_cast<int>(fd) << std::endl;
+                
+                if (fd == 0) {  // stdin
+                    IOManager& io_manager = chip8_32.get_io_manager();
+                    
+                    size_t max_size = chip8_32.get_R(17);
+                    if (max_size == 0 || max_size > 1024) {
+                        max_size = 256;
+                    }
+                    
+                    char temp_buffer[1024];
+                    size_t bytes_read = io_manager.read(fd, temp_buffer, max_size - 1);
+                    
+                    if (bytes_read > 0) {
+                    uint32_t target_addr;
+            
+                    // 스택 기반 주소 지원
+                    if (buffer_addr >= 0xFF00) {
+                        // 0xFFxx 패턴을 RBP-xx로 해석
+                        uint8_t offset = buffer_addr & 0xFF;
+                        target_addr = chip8_32.get_RBP() - offset;
+                        
+                        std::cout << "[read] 스택 주소: RBP(0x" << std::hex 
+                                << chip8_32.get_RBP() << ") - " << std::dec
+                                << static_cast<int>(offset) << " = 0x" 
+                                << std::hex << target_addr << std::dec << std::endl;
+                        
+                        // BOF 실험: 스택 쓰기 시 경계 검사 완화
+                        for (size_t i = 0; i < bytes_read; ++i) {
+                            if (target_addr + i < MEMORY_SIZE_32) {
+                                chip8_32.set_memory(target_addr + i, static_cast<uint8_t>(temp_buffer[i]));
+                            }
+                        }
+                
+                        } else {
+                            // 기존 방식: 일반 메모리 주소
+                            target_addr = buffer_addr;
+                            
+                            for (size_t i = 0; i < bytes_read; ++i) {
+                                if (target_addr + i < MEMORY_SIZE_32) {
+                                    chip8_32.set_memory(target_addr + i, static_cast<uint8_t>(temp_buffer[i]));
+                                }
+                            }
+                        }
+
+                        chip8_32.set_R(16, static_cast<uint32_t>(bytes_read));
+                        std::cout << "[read] Successfully read " << bytes_read << " bytes" << std::endl;
+                        chip8_32.set_pc(chip8_32.get_pc() + 4);
+                        } else {
+                        std::cout << "[read] No input available, retrying..." << std::endl;
+                        
+                        static uint32_t last_read_attempt = 0;
+                        uint32_t current_time = timer::get_ticks();
+                        
+                        if (current_time - last_read_attempt > 100) {
+                            last_read_attempt = current_time;
+                            std::cout << "[read] Waiting for SDL2 input... (Press F1 in game to enter input)" << std::endl;
+                        } else {
+                            chip8_32.set_pc(chip8_32.get_pc() + 4);
+                            chip8_32.set_R(16, 0);
+                        }
+                    }
+                    
+                } else {
+                    std::cerr << "[read] Unsupported file descriptor: " << static_cast<int>(fd) << std::endl;
+                    chip8_32.set_R(16, 0xFFFFFFFF);
+                    chip8_32.set_pc(chip8_32.get_pc() + 4);
+                }
+                break;
+            }
+            
+            case 0x1: {  // WRITE syscall
+                std::cout << "[write] Writing to fd " << static_cast<int>(fd) << std::endl;
+                
+                if (fd == 1 || fd == 2) {  // stdout, stderr
+                    size_t write_size = chip8_32.get_R(17);
+                    
+                    std::string output;
+                    if (write_size == 0) {
+                        for (size_t i = 0; i < 1024; ++i) {
+                            if (buffer_addr + i >= MEMORY_SIZE_32) break;
+                            
+                            uint8_t byte = chip8_32.get_memory(buffer_addr + i);
+                            if (byte == 0) break;
+                            
+                            output += static_cast<char>(byte);
+                        }
+                    } else {
+                        write_size = std::min(write_size, static_cast<size_t>(1024));
+                        for (size_t i = 0; i < write_size; ++i) {
+                            if (buffer_addr + i >= MEMORY_SIZE_32) break;
+                            
+                            uint8_t byte = chip8_32.get_memory(buffer_addr + i);
+                            output += static_cast<char>(byte);
+                        }
+                    }
+                    
+                    IOManager& io_manager = chip8_32.get_io_manager();
+                    size_t bytes_written = io_manager.write(fd, output.c_str(), output.length());
+                    
+                    chip8_32.set_R(16, static_cast<uint32_t>(bytes_written));
+                    std::cout << "[write] Wrote " << bytes_written << " bytes: " << output << std::endl;
+                    
+                } else {
+                    std::cerr << "[write] Unsupported file descriptor: " << static_cast<int>(fd) << std::endl;
+                    chip8_32.set_R(16, 0xFFFFFFFF);
+                }
+                chip8_32.set_pc(chip8_32.get_pc() + 4);
+                break;
+            }
+            
+            case 0x2: {  // GETPID syscall
+                std::cout << "[getpid] Returning fake PID" << std::endl;
+                chip8_32.set_R(16, 1234);
+                chip8_32.set_pc(chip8_32.get_pc() + 4);
+                break;
+            }
+            
+            case 0x3: {  // 🎯 **LOAD_ROM syscall - 수정된 버전**
+                std::cout << "[load_rom] Loading ROM with auto-mode detection" << std::endl;
+                
+                // 메모리에서 파일명 읽기
+                std::string filename;
+                for (size_t i = 0; i < 256; ++i) {
+                    if (buffer_addr + i >= MEMORY_SIZE_32) break;
+                    
+                    uint8_t byte = chip8_32.get_memory(buffer_addr + i);
+                    if (byte == 0) break;
+                    
+                    filename += static_cast<char>(byte);
+                }
+                
+                if (!filename.empty()) {
+                    std::cout << "[load_rom] File: " << filename << std::endl;
+                    
+                    // 🔧 **수정: ModeSelector::load_and_switch_mode 사용**
+                    bool success = ModeSelector::load_and_switch_mode(chip8_32, filename);
+                    
+                    if (success) {
+                        chip8_32.set_R(16, 0); // 성공
+                        
+                        // 모드별 분기 처리
+                        std::string extension = ModeSelector::get_file_extension(filename);
+                        
+                        if (extension == ".ch8" || extension == ".c8") {
+                            std::cout << "[load_rom] 8-bit ROM loaded, mode switch will occur" << std::endl;
+                            chip8_32.set_pc(chip8_32.get_pc() + 4);
+                            
+                        } else {
+                            std::cout << "[load_rom] 32-bit ROM loaded, jumping to 0x200" << std::endl;
+                            chip8_32.set_pc(0x200);
+                        }
+                        
+                    } else {
+                        chip8_32.set_R(16, 0xFFFFFFFF);
+                        chip8_32.set_pc(chip8_32.get_pc() + 4);
+                        std::cout << "[load_rom] Failed to load ROM" << std::endl;
+                    }
+                    
+                } else {
+                    std::cout << "[load_rom] Empty filename" << std::endl;
+                    chip8_32.set_R(16, 0xFFFFFFFF);
+                    chip8_32.set_pc(chip8_32.get_pc() + 4);
+                }
+                break;
+            }
+            
+            case 0x4: {  // EXIT syscall
+                uint32_t exit_code = chip8_32.get_R(17);
+                std::cout << "[exit] Exiting with code " << exit_code << std::endl;
+                chip8_32.set_R(16, 0);
+                chip8_32.set_pc(chip8_32.get_pc() + 4);
+                break;
+            }
+            
+            default:
+                std::cerr << "[syscall] Unknown syscall: " << static_cast<int>(syscall_num) << std::endl;
+                chip8_32.set_R(16, 0xFFFFFFFF);
+                chip8_32.set_pc(chip8_32.get_pc() + 4);
+                break;
+        }
         
-        // 새 프레임 포인터 설정
-        chip8_32.set_current_frame_pointer(chip8_32.get_frame_manager().get_current_fp());
-        
-        // 함수 주소로 점프
-        chip8_32.set_pc(func_addr);
-        
-        std::cout << "Frame created successfully, jumping to 0x" << std::hex << func_addr << std::dec << std::endl;
-        std::cout << "===================" << std::endl;
+        std::cout << "System registers after syscall:" << std::endl;
+        std::cout << "  R16 (return): 0x" << std::hex << chip8_32.get_R(16) << std::dec << std::endl;
+        std::cout << "  R17 (size):   0x" << std::hex << chip8_32.get_R(17) << std::dec << std::endl;
     }
 
-    /// @brief RET_FRAME - 스택 프레임 복원 (12000000)
-    void OP_12000000(Chip8_32& chip8_32, uint32_t opcode) {
-        std::cout << "\n=== RET_FRAME ===" << std::endl;
+    void OP_11XXXXXX(Chip8_32& chip8_32, uint32_t opcode) {
+        uint8_t sub_opcode = (opcode & 0x00FF0000) >> 16;  // 상위 8비트에서 세부 명령어 구분
         
-        uint32_t return_addr;
-        uint32_t prev_fp;
-        
-        // 스택 프레임 복원 (카나리 검증 포함)
-        if (!chip8_32.get_frame_manager().restore_frame(return_addr, prev_fp)) {
-            std::cerr << "[RET_FRAME] Failed to restore stack frame!" << std::endl;
-            chip8_32.set_pc(chip8_32.get_pc() + 4);
-            return;
+        switch (sub_opcode) {
+            // 기본 스택 조작 (0x1100xxxx)
+            case 0x00: {
+                uint8_t detail = (opcode & 0x0000FF00) >> 8;
+                if (detail == 0x00) {
+                    StackOpcodes::OP_PUSH_RBP(chip8_32, opcode);  // 0x11000000
+                } else {
+                    StackOpcodes::OP_PUSH_RX(chip8_32, opcode);   // 0x1100RRXX
+                }
+                break;
+            }
+            case 0x01: {
+                uint8_t detail = (opcode & 0x0000FF00) >> 8;
+                if (detail == 0x00) {
+                    StackOpcodes::OP_POP_RBP(chip8_32, opcode);   // 0x11010000
+                } else {
+                    StackOpcodes::OP_POP_RX(chip8_32, opcode);    // 0x1101RRXX
+                }
+                break;
+            }
+            
+            // 프레임 포인터 조작 (0x1102xxxx, 0x1103xxxx)
+            case 0x02:
+                StackOpcodes::OP_MOV_RBP_RSP(chip8_32, opcode);   // 0x11020000
+                break;
+            case 0x03:
+                StackOpcodes::OP_MOV_RSP_RBP(chip8_32, opcode);   // 0x11030000
+                break;
+            
+            // 스택 포인터 조작 (0x1104xxxx, 0x1105xxxx)
+            case 0x04:
+                StackOpcodes::OP_SUB_RSP(chip8_32, opcode);       // 0x1104NNNN
+                break;
+            case 0x05:
+                StackOpcodes::OP_ADD_RSP(chip8_32, opcode);       // 0x1105NNNN
+                break;
+            
+            // 함수 호출/반환 (0x1106xxxx, 0x1107xxxx)
+            case 0x06:
+                StackOpcodes::OP_CALL_FUNC(chip8_32, opcode);     // 0x1106NNNN
+                break;
+            case 0x07:
+                StackOpcodes::OP_RET_FUNC(chip8_32, opcode);      // 0x11070000
+                break;
+            
+            // 스택 메모리 접근 (0x1108xxxx - 0x110Bxxxx)
+            case 0x08:
+                StackOpcodes::OP_MOV_RBP_MINUS_RX(chip8_32, opcode);  // 0x1108RRNN
+                break;
+            case 0x09:
+                StackOpcodes::OP_MOV_RX_RBP_MINUS(chip8_32, opcode);  // 0x1109RRNN
+                break;
+            case 0x0A:
+                StackOpcodes::OP_MOV_RBP_PLUS_RX(chip8_32, opcode);   // 0x110ARRNN
+                break;
+            case 0x0B:
+                StackOpcodes::OP_MOV_RX_RBP_PLUS(chip8_32, opcode);   // 0x110BRRNN
+                break;
+                
+            default:
+                std::cerr << "Unknown stack opcode: 0x" << std::hex << opcode << "\n";
+                chip8_32.set_pc(chip8_32.get_pc() + 4);
+                break;
         }
-        
-        // 프레임 포인터 복원
-        chip8_32.set_current_frame_pointer(prev_fp);
-        
-        // 반환 주소로 점프
-        chip8_32.set_pc(return_addr);
-        
-        std::cout << "Frame restored successfully, returning to 0x" << std::hex << return_addr << std::dec << std::endl;
-        std::cout << "==================" << std::endl;
-    }
+    };
 
-    /// @brief PUSH_LOCAL - 지역변수에 값 저장 (13XXVVVV)
-    /// XX = 지역변수 인덱스, VVVV = 값
-    void OP_13XXVVVV(Chip8_32& chip8_32, uint32_t opcode) {
-        uint8_t local_index = (opcode & 0x00FF0000) >> 16;  // 지역변수 인덱스
-        uint32_t value = opcode & 0x0000FFFF;               // 값 (16비트)
-        
-        std::cout << "\n=== PUSH_LOCAL ===" << std::endl;
-        std::cout << "Local index: " << static_cast<int>(local_index) << std::endl;
-        std::cout << "Value: 0x" << std::hex << value << std::dec << std::endl;
-        
-        // 지역변수에 값 저장
-        if (!chip8_32.get_frame_manager().set_current_local(local_index, value)) {
-            std::cerr << "[PUSH_LOCAL] Failed to set local variable!" << std::endl;
-        }
-        
-        chip8_32.set_pc(chip8_32.get_pc() + 4);
-        std::cout << "===================" << std::endl;
-    }
+    void OP_12XXXXXX(Chip8_32& chip8_32, uint32_t opcode) {
+        uint8_t reg = (opcode & 0x00FF0000) >> 16;
+        uint8_t offset = (opcode & 0x000000FF);
 
-    /// @brief POP_LOCAL - 지역변수에서 값 로드 (14XXRRRR)
-    /// XX = 지역변수 인덱스, RRRR = 대상 레지스터 인덱스
-    void OP_14XXRRRR(Chip8_32& chip8_32, uint32_t opcode) {
-        uint8_t local_index = (opcode & 0x00FF0000) >> 16;  // 지역변수 인덱스
-        uint8_t reg_index = (opcode & 0x0000FFFF);          // 대상 레지스터 인덱스
-        
-        std::cout << "\n=== POP_LOCAL ===" << std::endl;
-        std::cout << "Local index: " << static_cast<int>(local_index) << std::endl;
-        std::cout << "Target register: R" << static_cast<int>(reg_index) << std::endl;
-        
-        uint32_t value;
-        // 지역변수에서 값 로드
-        if (!chip8_32.get_frame_manager().get_current_local(local_index, value)) {
-            std::cerr << "[POP_LOCAL] Failed to get local variable!" << std::endl;
-            chip8_32.set_pc(chip8_32.get_pc() + 4);
-            return;
-        }
-        
-        // 레지스터에 값 저장
-        if (reg_index < NUM_REGISTERS_32) {
-            chip8_32.set_R(reg_index, value);
-            std::cout << "Loaded value 0x" << std::hex << value << std::dec 
-                      << " into R" << static_cast<int>(reg_index) << std::endl;
-        } else {
-            std::cerr << "[POP_LOCAL] Invalid register index: " << static_cast<int>(reg_index) << std::endl;
-        }
-        
-        chip8_32.set_pc(chip8_32.get_pc() + 4);
-        std::cout << "==================" << std::endl;
+        uint32_t base = chip8_32.get_I();
+        uint8_t val = chip8_32.get_memory(base + offset);
+
+        chip8_32.set_R(reg, val);
+        std::cout << "[LD] R" << (int)reg << " <- MEM[" << std::hex << base + offset << "] ("
+                << (int)val << ")" << std::dec << std::endl;
     }
 
     /// @brief opcode 상위 8비트 기반으로 핸들러 함수 등록
@@ -454,17 +654,16 @@ namespace OpcodeTable_32 {
         primary_table_32[0x0D] = OP_0DXXYYNN;  // 스프라이트 그리기
         primary_table_32[0x0E] = OP_0EXXCCCC;  // 키 입력 조건 분기
         primary_table_32[0x0F] = OP_0FXXCCCC;  // Fx 계열 (타이머/메모리 함수) 확장 명령들 처리
-        primary_table_32[0x11] = OP_11RRAAAA;  // CALL_FRAME - 스택 프레임 생성
-        primary_table_32[0x12] = OP_12000000;  // RET_FRAME - 스택 프레임 복원
-        primary_table_32[0x13] = OP_13XXVVVV;  // PUSH_LOCAL - 지역변수에 값 저장
-        primary_table_32[0x14] = OP_14XXRRRR;  // POP_LOCAL - 지역변수에서 값 로드
+        primary_table_32[0x10] = OP_10SAAAAF;  // SYSCALL 처리
+        primary_table_32[0x11] = OP_11XXXXXX;  // 스택 프레임 명령어 핸들러
+        primary_table_32[0x12] = OP_12XXXXXX;  // 특수 명령어
     }
 
     /// @brief opcode를 상위 8비트로 분기하여 실행
     void Execute(Chip8_32& chip8_32, uint32_t opcode) {
         uint8_t index = (opcode & 0xFF000000) >> 24;
     
-        // 실제 구현된 명령어만 처리 (0x00~0x14, 총 21개)
+        // 실제 구현된 명령어만 처리 (0x00~0x0F, 총 16개)
         if (index >= IMPLEMENTED_OPCODES) {
             std::cerr << "Unimplemented 32-bit opcode: " << std::hex << opcode << "\n";
             chip8_32.set_pc(chip8_32.get_pc() + 4);
@@ -480,4 +679,5 @@ namespace OpcodeTable_32 {
         }
     }
 
-} // namespace OpcodeTable_32
+}   // namespace OpcodeTable_32 
+ 

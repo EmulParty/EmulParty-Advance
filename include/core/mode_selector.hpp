@@ -1,47 +1,28 @@
-// include/core/mode_selector.hpp
+// mode_selector.hpp - 완전 통합 BootROM 아키텍처 (deprecated 함수 제거)
 #pragma once
 #include <string>
-#include "../common/constants.hpp"
+#include "common/constants.hpp"
 
-/**
- * @brief 모드 선택기 클래스
- * 파일 확장자를 기반으로 적절한 에뮬레이터 모드를 선택하고 실행
- */
+// 전방 선언
+class Platform;
+class Chip8_32;
+
 class ModeSelector {
 public:
-    /**
-     * @brief ROM 파일을 분석하여 적절한 모드로 실행
-     * @param rom_path ROM 파일 경로
-     * @return 실행 결과 (0: 성공, 1: 실패)
-     */
-
-    /**
-     * @brief 디버그 모드 설정
-     * @param enable true면 디버그 모드 활성화
-     */
+    // 🚀 **메인 진입점 - 통합 BootROM 시스템**
+    static int select_and_run();
+    
+    // 🐛 **디버그 모드 설정**
     static void set_debug_mode(bool enable);
     
-    static int select_and_run(const char* rom_path);
+    // 🎯 **SYSCALL에서 호출할 함수들**
+    static bool load_and_switch_mode(Chip8_32& chip8_32, const std::string& filename);
+    static std::string get_file_extension(const std::string& filename);
 
 private:
-    /**
-     * @brief 파일 확장자 추출
-     * @param filename 파일명
-     * @return 소문자로 변환된 확장자 (예: ".ch8", ".ch32")
-     */
-    static std::string get_file_extension(const std::string& filename);
+    // 🔧 **내부 구현 함수들**
+    static int run_unified_bootrom_mode();
+    static int run_8bit_mode_after_bootrom(Platform& platform);
     
-    /**
-     * @brief 8비트 모드 실행
-     * @param rom_path ROM 파일 경로
-     * @return 실행 결과
-     */
-    static int run_8bit_mode(const char* rom_path);
-    
-    /**
-     * @brief 32비트 모드 실행
-     * @param rom_path ROM 파일 경로
-     * @return 실행 결과
-     */
-    static int run_32bit_mode(const char* rom_path);
+    // 🚫 **Deprecated 함수들 완전 제거됨**
 };

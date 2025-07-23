@@ -1,12 +1,15 @@
 #pragma once
-
 #include <array>
 #include <cstdint>
 #include <cstddef>
-#include "../common/constants.hpp"
-#include "../platform/timer.hpp"
-#include "./stack_frame.hpp"
+#include <memory>
+#include "common/constants.hpp"
+#include "timer.hpp"
+#include "io_manager.hpp"
 
+// 전방 선언
+class Platform;
+class SDLConsoleIO;
 
 // CHIP-8 확장 버전은 우선 64KB 메모리를 사용합니다. 
 constexpr unsigned int MEMORY_SIZE_32 = 65536;
@@ -21,27 +24,25 @@ class Chip8_32 {
 private:
     // 메모리 (4KB -> 64KB 확장)
     std::array<uint8_t, MEMORY_SIZE_32> memory;     // 64KB 메모리, 각 셀은 8비트
-    
     // 레지스터 (기존 16개 -> 32개로 확장, 8비트 -> 32비트)
     std::array<uint32_t, NUM_REGISTERS_32> R;        // 32개의 32비트 범용 레지스터
-    
     // 시스템 레지스터들 (16비트 -> 32비트 확장)
     uint32_t I;                                  // 인덱스 레지스터 (메모리 주소)
     uint32_t pc;                                 // 프로그램 카운터
-
     // 스택 관련 (16비트 주소 -> 32비트 주소, 스택 크기 16단계 -> 32단계로 확장)
     std::array<uint32_t, STACK_SIZE_32> stack;      // 서브루틴 호출 스택 (32비트 주소 저장)
     uint8_t sp;                                  // 스택 포인터 (0-31이므로 8비트로 충분)
-
     // 명령어 처리 (16비트 -> 32비트 확장)
     uint32_t opcode;                             // 현재 실행 중인 명령어 (4바이트)
-
     size_t loaded_rom_size; 
-
     uint32_t last_timer_update = 0;
 
-    StackFrameManager frame_manager_; // 스택 프레임 관리자
-    uint32_t current_frame_pointer_; // 현재 프레임 포인터
+    IOManager io_manager_; // I/O 장치 관리자
+    Platform* platform_ptr_; // Platform 포인터 추가
+    std::shared_ptr<SDLConsoleIO> console_io_; // SDLConsoleIO 인스턴스
+
+    void load_boot_rom();
+    void setup_io_devices(); // Platform 의존적이므로 private
 
 public:
     Chip8_32(); // 생성자: 초기화 수행
@@ -67,6 +68,9 @@ public:
     uint8_t delay_timer;
     uint8_t sound_timer;
 
+    // Platform 설정 함수 추가
+    void setPlatform(Platform* platform);
+
     // 프로그램 카운터
     uint32_t get_pc() const { return pc; }
     void set_pc(uint32_t value) { pc = value; }
@@ -75,7 +79,7 @@ public:
     uint32_t get_R(int index) const { return R.at(index); }
     void set_R(int index, uint32_t value) { R.at(index) = value; }
 
-    // 메모리 접근 (주소는 32비트, 데이터는 8비트 유지)  <- 재검토
+    // 메모리 접근 (주소는 32비트, 데이터는 8비트 유지)
     uint8_t get_memory(int index) const { return memory.at(index); }
     void set_memory(int index, uint8_t value) { memory.at(index) = value; }
 
@@ -83,20 +87,43 @@ public:
     uint32_t get_I() const { return I; }
     void set_I(uint32_t value) { I = value; }
 
-    // 스택
+    // 스택 - 기존 32비트 ROM과 호환성을 위해서
     uint32_t get_stack(int index) const { return stack.at(index); }
     void set_stack(int index, uint32_t value) { stack.at(index) = value; }
 
-    // 스택 포인터
+    // 스택 포인터 - 기존 32비트 ROM과 호환성을 위해서
     uint8_t get_sp() const { return sp; }
     void set_sp(uint8_t value) { sp = value; }
+
+     /**
+     * @brief 스택 프레임 정보 출력 (디버깅용)
+     */
+    void print_stack_info() const;
+    
+    /**
+     * @brief 스택 메모리 덤프 (디버깅용)
+     * @param range 덤프할 범위 (기본값: 64바이트)
+     */
+    void dump_stack(uint32_t range = 64) const;
+    
+    // RBP (R28) 레지스터 접근자
+    uint32_t get_RBP() const;
+    void set_RBP(uint32_t value);
+    
+    // RSP (R29) 레지스터 접근자
+    uint32_t get_RSP() const;
+    void set_RSP(uint32_t value);
+    
+    // RIP (R30) 레지스터 접근자 (pc와 동기화)
+    uint32_t get_RIP() const;
+    void set_RIP(uint32_t value);
 
     // 비디오 메모리
     uint8_t get_video(int index) const { return video.at(index); }
     void set_video(int index, uint8_t value) { video.at(index) = value; }
 
     // 키보드
-    bool get_key(int index) const { return keypad.at(index); }
+    uint8_t get_key(int index) const { return keypad.at(index); }  // bool → uint8_t
     void set_key(int index, uint8_t value) { keypad.at(index) = value; }
 
     // 사운드 타이머
@@ -115,10 +142,10 @@ public:
     uint32_t getCurrentOpcode() const {
         return opcode;
     }
-
-    // 스택 프레임 관련 인터페이스
-    StackFrameManager& get_frame_manager() { return frame_manager_; }
-    const StackFrameManager& get_frame_manager() const { return frame_manager_; }
-    uint32_t get_current_frame_pointer() const { return current_frame_pointer_; }
-    void set_current_frame_pointer(uint32_t fp) { current_frame_pointer_ = fp; }
+    
+    // IOManager 접근 함수
+    IOManager& get_io_manager();
+    
+    // SDLConsoleIO 접근 함수
+    std::shared_ptr<SDLConsoleIO> get_console_io();
 };

@@ -1,39 +1,46 @@
-#include "../../include/core/mode_selector.hpp"
+// src/main.cpp - BootROM 중심 실행 (간소화)
+#include "mode_selector.hpp"
 #include <iostream>
 #include <string>
 
+void print_banner() {
+    std::cout << "\n";
+    std::cout << "╔══════════════════════════════════════════════════════════════════╗\n";
+    std::cout << "║                CHIP-8 Extended Emulator v2.0                     ║\n";
+    std::cout << "║                   BootROM-Driven Architecture                    ║\n";
+    std::cout << "╠══════════════════════════════════════════════════════════════════╣\n";
+    std::cout << "║  Features: BootROM • SYSCALL • I/O Redirection • Auto-Detection  ║\n";
+    std::cout << "║  Modes: 8-bit CHIP-8 (compatibility) + 32-bit Extended          ║\n";
+    std::cout << "╚══════════════════════════════════════════════════════════════════╝\n";
+    std::cout << "\n";
+}
+
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        std::cout << "Usage: " << argv[0] << " [--debug] <rom_file>\n";
-        std::cout << "Options:\n";
-        std::cout << "  --debug    Enable interactive debugger\n";
-        std::cout << "\nExamples:\n";
-        std::cout << "  " << argv[0] << " roms/pong.ch8\n";
-        std::cout << "  " << argv[0] << " --debug roms/pong.ch8\n";
-        return 1;
-    }
-    
     bool debug_mode = false;
-    const char* rom_path = nullptr;
     
-    // 명령행 인수 파싱
+    // 간단한 인수 파싱
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--debug" || arg == "-d") {
             debug_mode = true;
-        } else {
-            rom_path = argv[i];
+        } else if (arg == "--help" || arg == "-h") {
+            std::cout << "Usage: " << argv[0] << " [--debug]\n";
+            std::cout << "BootROM will handle file selection automatically.\n";
+            return 0;
         }
     }
+
+    print_banner();
     
-    if (!rom_path) {
-        std::cerr << "Error: No ROM file specified\n";
-        return 1;
+    if (debug_mode) {
+        std::cout << "🐛 Debug mode enabled\n";
     }
-    
-    // 디버그 모드 설정
+
     ModeSelector::set_debug_mode(debug_mode);
     
-    // 실행
-    return ModeSelector::select_and_run(rom_path);
+    std::cout << "🚀 Starting BootROM-driven emulator...\n";
+    int result = ModeSelector::select_and_run();
+
+    std::cout << "\n✨ Emulator terminated " << (result == 0 ? "successfully" : "with errors") << "\n";
+    return result;
 }

@@ -5,8 +5,8 @@
 #include <unordered_map>
 #include <iostream>
 
-constexpr uint8_t IMPLEMENTED_OPCODES = 21;  // 현재 구현된 opcode 수
-constexpr uint8_t MAX_OPCODES = 32;          // 최대 확장 가능한 opcode 수
+constexpr uint8_t IMPLEMENTED_OPCODES = 17;  // 현재 구현된 opcode 수
+constexpr uint8_t MAX_OPCODES = 20;          // 최대 확장 가능한 opcode 수
 
 class Chip8_32; // 전방 선언 
 
@@ -20,7 +20,7 @@ namespace OpcodeTable_32 {
     using OpcodeHandler32 = std::function<void(Chip8_32&, uint32_t)>;
 
     // 명령어 0x00000000 ~ 0xFFFFFFFF 중, 상위 4비트 또는 특정 패턴으로 구분하여 핸들러를 매핑합니다.
-    extern std::array<OpcodeHandler32, 32> primary_table_32; 
+    extern std::array<OpcodeHandler32, 20> primary_table_32; 
 
     /**
      * @brief 테이블을 초기화합니다. (초기 실행 시 한 번만 호출)

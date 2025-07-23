@@ -1,129 +1,89 @@
-#include "../../include/core/stack_frame.hpp"
+#include "stack_frame.hpp"
+#include "chip8_32.hpp"
 #include <iostream>
 #include <iomanip>
 
-StackFrameManager::StackFrameManager() 
-    : stack_depth_(0), current_fp_(0) {
-    // 모든 스택 프레임을 기본값으로 초기화
-    for (auto& frame : frame_stack_) {
-        frame = StackFrame();
-    }
+namespace StackFrame {
+
+void initialize(Chip8_32& chip8_32) {
+    std::cout << "[StackFrame] Initializing stack system..." << std::endl;
+    
+    // RSP (R29) 초기화 - 스택 최상단으로 설정
+    chip8_32.set_R(RSP_INDEX, STACK_START);
+    
+    // RBP (R28) 초기화 - 첫 번째 프레임에서는 0으로 설정
+    chip8_32.set_R(RBP_INDEX, 0x0000);
+    
+    // RIP (R30)는 기존 pc와 동기화 (pc → RIP 이름 변경 예정)
+    chip8_32.set_R(RIP_INDEX, chip8_32.get_pc());
+    
+    // R31 예약 레지스터 초기화
+    chip8_32.set_R(RESERVED_INDEX, 0x0000);
+    
+    std::cout << "[StackFrame] Stack initialized:" << std::endl;
+    std::cout << "  RSP (R29) = 0x" << std::hex << chip8_32.get_R(RSP_INDEX) << std::endl;
+    std::cout << "  RBP (R28) = 0x" << std::hex << chip8_32.get_R(RBP_INDEX) << std::endl;
+    std::cout << "  RIP (R30) = 0x" << std::hex << chip8_32.get_R(RIP_INDEX) << std::dec << std::endl;
 }
 
-bool StackFrameManager::create_frame(uint32_t return_addr, uint32_t current_fp) {
-    // 스택 오버플로우 검사
-    if (is_stack_full()) {
-        std::cerr << "[STACK_FRAME] Stack overflow! Cannot create new frame." << std::endl;
-        return false;
+bool check_stack_overflow(uint32_t rsp) {
+    if (rsp < STACK_END) {
+        std::cerr << "[StackFrame] STACK OVERFLOW! RSP=0x" 
+                  << std::hex << rsp << " < STACK_END=0x" << STACK_END << std::dec << std::endl;
+        return true;
     }
-    
-    // 새 프레임 생성
-    StackFrame new_frame;
-    new_frame.return_address = return_addr;
-    new_frame.canary = STACK_CANARY;
-    new_frame.frame_pointer = current_fp;  // 이전 프레임 포인터 저장
-    new_frame.local_vars.fill(0);          // 지역변수 초기화
-    
-    // 스택에 프레임 추가
-    frame_stack_[stack_depth_] = new_frame;
-    stack_depth_++;
-    current_fp_ = stack_depth_ - 1;  // 현재 프레임 포인터 업데이트
-    
-    std::cout << "[STACK_FRAME] Created frame at depth " << static_cast<int>(stack_depth_) 
-              << ", return_addr=0x" << std::hex << return_addr << std::dec << std::endl;
-    
-    return true;
+    return false;
 }
 
-bool StackFrameManager::restore_frame(uint32_t& return_addr, uint32_t& prev_fp) {
-    // 스택 언더플로우 검사
-    if (is_stack_empty()) {
-        std::cerr << "[STACK_FRAME] Stack underflow! No frame to restore." << std::endl;
-        return false;
+bool check_stack_underflow(uint32_t rsp) {
+    if (rsp > STACK_START) {
+        std::cerr << "[StackFrame] STACK UNDERFLOW! RSP=0x" 
+                  << std::hex << rsp << " > STACK_START=0x" << STACK_START << std::dec << std::endl;
+        return true;
     }
-    
-    // 현재 프레임 가져오기
-    StackFrame& current_frame = get_current_frame();
-    
-    // 카나리 값 검증
-    if (!current_frame.is_canary_valid()) {
-        std::cerr << "[STACK_FRAME] Stack corruption detected! Canary mismatch." << std::endl;
-        std::cerr << "Expected: 0x" << std::hex << STACK_CANARY 
-                  << ", Got: 0x" << current_frame.canary << std::dec << std::endl;
-        return false;
-    }
-    
-    // 반환 정보 설정
-    return_addr = current_frame.return_address;
-    prev_fp = current_frame.frame_pointer;
-    
-    std::cout << "[STACK_FRAME] Restored frame from depth " << static_cast<int>(stack_depth_) 
-              << ", return_addr=0x" << std::hex << return_addr << std::dec << std::endl;
-    
-    // 스택 정리
-    stack_depth_--;
-    current_fp_ = prev_fp;
-    
-    return true;
+    return false;
 }
 
-bool StackFrameManager::set_current_local(uint8_t index, uint32_t value) {
-    if (is_stack_empty()) {
-        std::cerr << "[STACK_FRAME] No active frame to set local variable." << std::endl;
-        return false;
-    }
+void print_stack_frame(const Chip8_32& chip8_32) {
+    uint32_t rbp = chip8_32.get_R(RBP_INDEX);
+    uint32_t rsp = chip8_32.get_R(RSP_INDEX);
+    uint32_t rip = chip8_32.get_R(RIP_INDEX);
     
-    StackFrame& current_frame = get_current_frame();
-    bool success = current_frame.set_local(index, value);
-    
-    if (success) {
-        std::cout << "[STACK_FRAME] Set local[" << static_cast<int>(index) 
-                  << "] = 0x" << std::hex << value << std::dec << std::endl;
-    } else {
-        std::cerr << "[STACK_FRAME] Invalid local variable index: " << static_cast<int>(index) << std::endl;
-    }
-    
-    return success;
-}
-
-bool StackFrameManager::get_current_local(uint8_t index, uint32_t& value) const {
-    if (is_stack_empty()) {
-        std::cerr << "[STACK_FRAME] No active frame to get local variable." << std::endl;
-        return false;
-    }
-    
-    const StackFrame& current_frame = get_current_frame();
-    bool success = current_frame.get_local(index, value);
-    
-    if (success) {
-        std::cout << "[STACK_FRAME] Get local[" << static_cast<int>(index) 
-                  << "] = 0x" << std::hex << value << std::dec << std::endl;
-    } else {
-        std::cerr << "[STACK_FRAME] Invalid local variable index: " << static_cast<int>(index) << std::endl;
-    }
-    
-    return success;
-}
-
-void StackFrameManager::print_stack_info() const {
     std::cout << "\n=== STACK FRAME INFO ===" << std::endl;
-    std::cout << "Stack depth: " << static_cast<int>(stack_depth_) << std::endl;
-    std::cout << "Current FP: " << current_fp_ << std::endl;
+    std::cout << "RBP (R28): 0x" << std::hex << std::setw(8) << std::setfill('0') << rbp << std::endl;
+    std::cout << "RSP (R29): 0x" << std::hex << std::setw(8) << std::setfill('0') << rsp << std::endl;
+    std::cout << "RIP (R30): 0x" << std::hex << std::setw(8) << std::setfill('0') << rip << std::endl;
+    std::cout << "Stack Used: " << std::dec << (STACK_START - rsp) << " bytes" << std::endl;
+    std::cout << "Stack Free: " << std::dec << (rsp - STACK_END) << " bytes" << std::endl;
+    std::cout << "=========================" << std::dec << std::endl;
+}
+
+void dump_stack_memory(const Chip8_32& chip8_32, uint32_t start_addr, uint32_t end_addr) {
+    std::cout << "\n=== STACK MEMORY DUMP ===" << std::endl;
+    std::cout << "Range: 0x" << std::hex << start_addr << " - 0x" << end_addr << std::endl;
     
-    if (stack_depth_ > 0) {
-        std::cout << "Current frame:" << std::endl;
-        const StackFrame& frame = get_current_frame();
-        std::cout << "  Return addr: 0x" << std::hex << frame.return_address << std::dec << std::endl;
-        std::cout << "  Canary: 0x" << std::hex << frame.canary << std::dec 
-                  << (frame.is_canary_valid() ? " (VALID)" : " (CORRUPTED)") << std::endl;
-        std::cout << "  Frame ptr: " << frame.frame_pointer << std::endl;
-        
-        std::cout << "  Local vars:" << std::endl;
-        for (size_t i = 0; i < MAX_LOCALS; ++i) {
-            if (frame.local_vars[i] != 0) {
-                std::cout << "    [" << i << "] = 0x" << std::hex << frame.local_vars[i] << std::dec << std::endl;
-            }
+    // 4바이트씩 출력 (32비트 워드 단위)
+    for (uint32_t addr = start_addr; addr <= end_addr; addr += 4) {
+        if (addr + 3 < MEMORY_SIZE_32) {
+            uint32_t word = (chip8_32.get_memory(addr) << 24) |
+                           (chip8_32.get_memory(addr + 1) << 16) |
+                           (chip8_32.get_memory(addr + 2) << 8) |
+                           chip8_32.get_memory(addr + 3);
+            
+            std::cout << "0x" << std::hex << std::setw(8) << std::setfill('0') << addr 
+                      << ": 0x" << std::setw(8) << word;
+            
+            // RSP, RBP 표시
+            uint32_t rsp = chip8_32.get_R(RSP_INDEX);
+            uint32_t rbp = chip8_32.get_R(RBP_INDEX);
+            
+            if (addr == rsp) std::cout << " <-- RSP";
+            if (addr == rbp) std::cout << " <-- RBP";
+            
+            std::cout << std::endl;
         }
     }
-    std::cout << "========================\n" << std::endl;
+    std::cout << "=========================" << std::dec << std::endl;
 }
+
+} // namespace StackFrame

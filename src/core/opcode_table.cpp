@@ -1,5 +1,5 @@
-#include "../../include/core/opcode_table.hpp"
-#include "../../include/core/chip8.hpp"
+#include "opcode_table.hpp"
+#include "chip8.hpp"
 
 #include <stdexcept>
 #include <iostream>
