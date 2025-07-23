@@ -354,7 +354,7 @@ namespace OpcodeTable_32 {
         }
 
         switch (syscall_num) {
-            case 0x0: {  // READ syscall
+            case 0x0: {  // READ syscall - 스택 프레임 지원 추가
                 std::cout << "[read] Reading from fd " << static_cast<int>(fd) << std::endl;
                 
                 if (fd == 0) {  // stdin
@@ -369,19 +369,47 @@ namespace OpcodeTable_32 {
                     size_t bytes_read = io_manager.read(fd, temp_buffer, max_size - 1);
                     
                     if (bytes_read > 0) {
-                        for (size_t i = 0; i < bytes_read; ++i) {
-                            if (buffer_addr + i < MEMORY_SIZE_32) {
-                                chip8_32.set_memory(buffer_addr + i, static_cast<uint8_t>(temp_buffer[i]));
+                        uint32_t target_addr;
+                
+                        // 핵심 개선: 스택 기반 주소 지원
+                        if (buffer_addr >= 0xFF00) {
+                            // 0xFFxx 패턴을 RBP-xx로 해석
+                            uint8_t offset = buffer_addr & 0xFF;
+                            target_addr = chip8_32.get_RBP() - offset;
+                            
+                            std::cout << "[read] 스택 주소 변환: 0x" << std::hex << buffer_addr 
+                                    << " → RBP(0x" << chip8_32.get_RBP()
+                                    << ") - " << std::dec << static_cast<int>(offset) 
+                                    << " = 0x" << std::hex << target_addr << std::dec << std::endl;
+                            
+                            // BOF 실험: 스택 쓰기 시 경계 검사 완화
+                            for (size_t i = 0; i < bytes_read; ++i) {
+                                if (target_addr + i < MEMORY_SIZE_32) {
+                                    chip8_32.set_memory(target_addr + i, static_cast<uint8_t>(temp_buffer[i]));
+                                }
+                            }
+                    
+                        } else {
+                            // 기존 방식: 일반 메모리 주소
+                            target_addr = buffer_addr;
+                            
+                            for (size_t i = 0; i < bytes_read; ++i) {
+                                if (target_addr + i < MEMORY_SIZE_32) {
+                                    chip8_32.set_memory(target_addr + i, static_cast<uint8_t>(temp_buffer[i]));
+                                }
                             }
                         }
-                        
-                        if (buffer_addr + bytes_read < MEMORY_SIZE_32) {
-                            chip8_32.set_memory(buffer_addr + bytes_read, 0);
+
+                        // null terminator 추가
+                        if (target_addr + bytes_read < MEMORY_SIZE_32) {
+                            chip8_32.set_memory(target_addr + bytes_read, 0);
                         }
 
                         chip8_32.set_R(16, static_cast<uint32_t>(bytes_read));
-                        std::cout << "[read] Successfully read " << bytes_read << " bytes" << std::endl;
+                        std::cout << "[read] Successfully read " << bytes_read << " bytes to 0x" 
+                                << std::hex << target_addr << std::dec << std::endl;
                         chip8_32.set_pc(chip8_32.get_pc() + 4);
+                        
                     } else {
                         std::cout << "[read] No input available, retrying..." << std::endl;
                         
@@ -404,7 +432,6 @@ namespace OpcodeTable_32 {
                 }
                 break;
             }
-            
             case 0x1: {  // WRITE syscall
                 std::cout << "[write] Writing to fd " << static_cast<int>(fd) << std::endl;
                 
@@ -452,7 +479,7 @@ namespace OpcodeTable_32 {
                 break;
             }
             
-            case 0x3: {  // 🎯 **LOAD_ROM syscall - 수정된 버전**
+            case 0x3: {  //  **LOAD_ROM syscall - 수정된 버전**
                 std::cout << "[load_rom] Loading ROM with auto-mode detection" << std::endl;
                 
                 // 메모리에서 파일명 읽기

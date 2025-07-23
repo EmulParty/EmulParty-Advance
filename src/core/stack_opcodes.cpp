@@ -69,7 +69,7 @@ void extract_register_and_offset(uint32_t opcode, uint8_t& reg_index, uint8_t& o
 // 1단계: 기본 스택 조작 명령어
 // ===========================================
 
-void OP_PUSH_RBP(Chip8_32& chip8_32, uint32_t opcode) {
+void OP_PUSH_RBP(Chip8_32& chip8_32, uint32_t /* opcode */) {
     LOG_DEBUG("[OPCODE] PUSH RBP (0x" << std::hex << opcode << ")" << std::dec);
     uint32_t rbp = chip8_32.get_R(StackFrame::RBP_INDEX);
     if (push_stack(chip8_32, rbp)) {
@@ -98,7 +98,7 @@ void OP_PUSH_RX(Chip8_32& chip8_32, uint32_t opcode) {
     }
 }
 
-void OP_POP_RBP(Chip8_32& chip8_32, uint32_t opcode) {
+void OP_POP_RBP(Chip8_32& chip8_32, uint32_t /* opcode */) {
     LOG_DEBUG("[OPCODE] POP RBP (0x" << std::hex << opcode << ")" << std::dec);
     uint32_t value;
     if (pop_stack(chip8_32, value)) {
@@ -133,7 +133,7 @@ void OP_POP_RX(Chip8_32& chip8_32, uint32_t opcode) {
 // 2단계: 프레임 포인터 조작
 // ===========================================
 
-void OP_MOV_RBP_RSP(Chip8_32& chip8_32, uint32_t opcode) {
+void OP_MOV_RBP_RSP(Chip8_32& chip8_32, uint32_t /* opcode */) {
     LOG_DEBUG("[OPCODE] MOV RBP, RSP (0x" << std::hex << opcode << ")" << std::dec);
     uint32_t rsp = chip8_32.get_R(StackFrame::RSP_INDEX);
     chip8_32.set_R(StackFrame::RBP_INDEX, rsp);
@@ -141,7 +141,7 @@ void OP_MOV_RBP_RSP(Chip8_32& chip8_32, uint32_t opcode) {
     chip8_32.set_pc(chip8_32.get_pc() + 4);
 }
 
-void OP_MOV_RSP_RBP(Chip8_32& chip8_32, uint32_t opcode) {
+void OP_MOV_RSP_RBP(Chip8_32& chip8_32, uint32_t /* opcode */) {
     LOG_DEBUG("[OPCODE] MOV RSP, RBP (0x" << std::hex << opcode << ")" << std::dec);
     uint32_t rbp = chip8_32.get_R(StackFrame::RBP_INDEX);
     chip8_32.set_R(StackFrame::RSP_INDEX, rbp);
@@ -208,7 +208,7 @@ void OP_CALL_FUNC(Chip8_32& chip8_32, uint32_t opcode) {
     }
 }
 
-void OP_RET_FUNC(Chip8_32& chip8_32, uint32_t opcode) {
+void OP_RET_FUNC(Chip8_32& chip8_32, uint32_t /* opcode */) {
     LOG_DEBUG("[OPCODE] RET_FUNC (0x" << std::hex << opcode << ")" << std::dec);
     uint32_t return_addr;
     if (pop_stack(chip8_32, return_addr)) {
