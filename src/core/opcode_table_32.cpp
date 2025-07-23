@@ -4,6 +4,8 @@
 #include "timer.hpp"          //  timer::get_ticks() 사용을 위해 추가!
 #include "stack_opcodes.hpp"   //  스택 관련 명령어를 사용하기 위해 추가!
 #include "stack_frame.hpp"
+#include "sdl_console_io.hpp"  
+#include "platform.hpp"      
 #include <stdexcept>
 #include <iostream>
 #include <cstring>  
@@ -354,7 +356,7 @@ namespace OpcodeTable_32 {
         }
 
         switch (syscall_num) {
-            case 0x0: {  // READ syscall
+            case 0x0: {  // READ syscall - 스택 프레임 지원 추가
                 std::cout << "[read] Reading from fd " << static_cast<int>(fd) << std::endl;
                 
                 if (fd == 0) {  // stdin
@@ -369,26 +371,26 @@ namespace OpcodeTable_32 {
                     size_t bytes_read = io_manager.read(fd, temp_buffer, max_size - 1);
                     
                     if (bytes_read > 0) {
-                    uint32_t target_addr;
-            
-                    // 스택 기반 주소 지원
-                    if (buffer_addr >= 0xFF00) {
-                        // 0xFFxx 패턴을 RBP-xx로 해석
-                        uint8_t offset = buffer_addr & 0xFF;
-                        target_addr = chip8_32.get_RBP() - offset;
-                        
-                        std::cout << "[read] 스택 주소: RBP(0x" << std::hex 
-                                << chip8_32.get_RBP() << ") - " << std::dec
-                                << static_cast<int>(offset) << " = 0x" 
-                                << std::hex << target_addr << std::dec << std::endl;
-                        
-                        // BOF 실험: 스택 쓰기 시 경계 검사 완화
-                        for (size_t i = 0; i < bytes_read; ++i) {
-                            if (target_addr + i < MEMORY_SIZE_32) {
-                                chip8_32.set_memory(target_addr + i, static_cast<uint8_t>(temp_buffer[i]));
-                            }
-                        }
+                        uint32_t target_addr;
                 
+                        // 핵심 개선: 스택 기반 주소 지원
+                        if (buffer_addr >= 0xFF00) {
+                            // 0xFFxx 패턴을 RBP-xx로 해석
+                            uint8_t offset = buffer_addr & 0xFF;
+                            target_addr = chip8_32.get_RBP() - offset;
+                            
+                            std::cout << "[read] 스택 주소 변환: 0x" << std::hex << buffer_addr 
+                                    << " → RBP(0x" << chip8_32.get_RBP()
+                                    << ") - " << std::dec << static_cast<int>(offset) 
+                                    << " = 0x" << std::hex << target_addr << std::dec << std::endl;
+                            
+                            // BOF 실험: 스택 쓰기 시 경계 검사 완화
+                            for (size_t i = 0; i < bytes_read; ++i) {
+                                if (target_addr + i < MEMORY_SIZE_32) {
+                                    chip8_32.set_memory(target_addr + i, static_cast<uint8_t>(temp_buffer[i]));
+                                }
+                            }
+                    
                         } else {
                             // 기존 방식: 일반 메모리 주소
                             target_addr = buffer_addr;
@@ -400,10 +402,17 @@ namespace OpcodeTable_32 {
                             }
                         }
 
+                        // null terminator 추가
+                        if (target_addr + bytes_read < MEMORY_SIZE_32) {
+                            chip8_32.set_memory(target_addr + bytes_read, 0);
+                        }
+
                         chip8_32.set_R(16, static_cast<uint32_t>(bytes_read));
-                        std::cout << "[read] Successfully read " << bytes_read << " bytes" << std::endl;
+                        std::cout << "[read] Successfully read " << bytes_read << " bytes to 0x" 
+                                << std::hex << target_addr << std::dec << std::endl;
                         chip8_32.set_pc(chip8_32.get_pc() + 4);
-                        } else {
+                        
+                    } else {
                         std::cout << "[read] No input available, retrying..." << std::endl;
                         
                         static uint32_t last_read_attempt = 0;
@@ -425,7 +434,6 @@ namespace OpcodeTable_32 {
                 }
                 break;
             }
-            
             case 0x1: {  // WRITE syscall
                 std::cout << "[write] Writing to fd " << static_cast<int>(fd) << std::endl;
                 
@@ -473,7 +481,7 @@ namespace OpcodeTable_32 {
                 break;
             }
             
-            case 0x3: {  // 🎯 **LOAD_ROM syscall - 수정된 버전**
+            case 0x3: {  //  **LOAD_ROM syscall - 수정된 버전**
                 std::cout << "[load_rom] Loading ROM with auto-mode detection" << std::endl;
                 
                 // 메모리에서 파일명 읽기
@@ -503,9 +511,25 @@ namespace OpcodeTable_32 {
                             std::cout << "[load_rom] 8-bit ROM loaded, mode switch will occur" << std::endl;
                             chip8_32.set_pc(chip8_32.get_pc() + 4);
                             
-                        } else {
+                        } else if (extension == ".ch32" || extension == ".c32") {
                             std::cout << "[load_rom] 32-bit ROM loaded, jumping to 0x200" << std::endl;
+                            
+                            // 핵심 추가: .ch32 파일 로드 시 화면과 콘솔 클리어  
+                            chip8_32.get_video().fill(0);
+                            chip8_32.set_draw_flag(true);
+                            
+                            // Platform의 콘솔 출력 버퍼 클리어
+                            auto console_io = chip8_32.get_console_io();
+                            if (console_io) {
+                                console_io->clearInput();
+                            }
+                            
+                            std::cout << "[load_rom] ★ Screen and console cleared for .ch32 ROM" << std::endl;
                             chip8_32.set_pc(0x200);
+                            
+                        } else {
+                            std::cout << "[load_rom] → Unknown extension, trying 8-bit mode" << std::endl;
+                            chip8_32.set_pc(chip8_32.get_pc() + 4);
                         }
                         
                     } else {
@@ -529,7 +553,29 @@ namespace OpcodeTable_32 {
                 chip8_32.set_pc(chip8_32.get_pc() + 4);
                 break;
             }
-            
+
+            case 0x5: {
+                std::cout << "[syscall] Entering calculator mode" << std::endl;
+                // IOManager → SDLConsoleIO → Platform 경로로 접근
+                auto console_io = chip8_32.get_console_io();
+                if (console_io) {
+                    Platform* platform = console_io->getPlatform();
+                    if (platform) {
+                        platform->SwitchToCalculatorMode();
+                        chip8_32.set_R(16, 0);  // 성공 코드
+                        std::cout << "[Calculator] Calculator mode activated successfully" << std::endl;
+                    } else {
+                        std::cerr << "[Calculator] Platform not available" << std::endl;
+                        chip8_32.set_R(16, 0xFFFFFFFF);  // 실패 코드
+                    }
+                } else {
+                    std::cerr << "[Calculator] Console I/O not available" << std::endl;
+                    chip8_32.set_R(16, 0xFFFFFFFF);  // 실패 코드
+                }
+                chip8_32.set_pc(chip8_32.get_pc() + 4);
+                break;
+            }
+
             default:
                 std::cerr << "[syscall] Unknown syscall: " << static_cast<int>(syscall_num) << std::endl;
                 chip8_32.set_R(16, 0xFFFFFFFF);
@@ -611,17 +657,6 @@ namespace OpcodeTable_32 {
         }
     };
 
-    void OP_12XXXXXX(Chip8_32& chip8_32, uint32_t opcode) {
-        uint8_t reg = (opcode & 0x00FF0000) >> 16;
-        uint8_t offset = (opcode & 0x000000FF);
-
-        uint32_t base = chip8_32.get_I();
-        uint8_t val = chip8_32.get_memory(base + offset);
-
-        chip8_32.set_R(reg, val);
-        std::cout << "[LD] R" << (int)reg << " <- MEM[" << std::hex << base + offset << "] ("
-                << (int)val << ")" << std::dec << std::endl;
-    }
 
     /// @brief opcode 상위 8비트 기반으로 핸들러 함수 등록
     void Initialize() {
@@ -656,7 +691,6 @@ namespace OpcodeTable_32 {
         primary_table_32[0x0F] = OP_0FXXCCCC;  // Fx 계열 (타이머/메모리 함수) 확장 명령들 처리
         primary_table_32[0x10] = OP_10SAAAAF;  // SYSCALL 처리
         primary_table_32[0x11] = OP_11XXXXXX;  // 스택 프레임 명령어 핸들러
-        primary_table_32[0x12] = OP_12XXXXXX;  // 특수 명령어
     }
 
     /// @brief opcode를 상위 8비트로 분기하여 실행

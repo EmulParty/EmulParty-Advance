@@ -13,7 +13,15 @@ Platform::Platform(const char* title, int window_width, int window_height, int t
       input_buffer_(""),
       file_selected_(false),
       console_input_ready_(false),
-      input_ready_(false) {
+      input_ready_(false),
+      // 계산기 관련 초기화
+      calc_num1_(""),
+      calc_num2_(""), 
+      calc_operation_(""),
+      calc_result_(""),
+      calc_input_phase_(0),
+      calc_input_ready_(false),
+      calc_display_result_("") {
     std::cout << "[INFO] Platform initializing: " << title << std::endl;
 }
 
@@ -117,6 +125,9 @@ bool Platform::ProcessInput(std::array<uint8_t, 16>& keypad) {
                 break;
             case InputMode::CONSOLE_INPUT:
                 if (ProcessConsoleInput(event)) return true;
+                break;
+            case InputMode::CALCULATOR:
+                if (ProcessCalculatorInput(event)) return true;
                 break;
             case InputMode::GAME:
                 // 🔧 **핵심 수정: 실제 키패드 전달**
@@ -227,6 +238,10 @@ void Platform::ProcessEvents() {
                 ProcessGameInput(event, dummy_keypad);
                 break;
             }
+            case InputMode::CALCULATOR:
+                ProcessCalculatorInput(event);
+                break;
+            
         }
     }
 }
@@ -432,6 +447,9 @@ void Platform::Update(const std::array<uint8_t, VIDEO_WIDTH * VIDEO_HEIGHT>& vid
             std::cout << "[Platform] Rendering file input UI" << std::endl;
             RenderFileInputUI();
             return; // RenderFileInputUI()에서 이미 SDL_RenderPresent() 호출
+        case InputMode::CALCULATOR:
+            RenderCalculatorUI();
+            return; // RenderCalculatorUI()에서 이미 SDL_RenderPresent() 호출RENDER
         case InputMode::GAME:
             // 게임 모드에서는 콘솔 출력만 표시
             RenderConsoleOutput();
@@ -439,6 +457,254 @@ void Platform::Update(const std::array<uint8_t, VIDEO_WIDTH * VIDEO_HEIGHT>& vid
     }
     
     SDL_RenderPresent(renderer_);
+}
+
+// 계산기 관련 함수들 추가 구현 
+void Platform::SwitchToCalculatorMode() {
+    current_mode_ = InputMode::CALCULATOR;
+    calc_num1_.clear();
+    calc_num2_.clear(); 
+    calc_operation_.clear();
+    calc_result_.clear();
+    calc_input_phase_ = 0;
+    calc_input_ready_ = false;
+    calc_display_result_.clear();
+    SDL_StartTextInput();
+    
+    std::cout << "[Platform] SWITCHED TO CALCULATOR MODE" << std::endl;
+}
+
+bool Platform::IsCalculatorInputReady() const {
+    return calc_input_ready_;
+}
+
+std::string Platform::GetCalculatorInput() {
+    calc_input_ready_ = false;
+    // "10 5 2" 형식으로 반환
+    return calc_num1_ + " " + calc_num2_ + " " + calc_operation_;
+}
+
+void Platform::ClearCalculatorInput() {
+    calc_num1_.clear();
+    calc_num2_.clear();
+    calc_operation_.clear();
+    calc_result_.clear();
+    calc_input_phase_ = 0;
+    calc_input_ready_ = false;
+    calc_display_result_.clear();
+}
+
+void Platform::UpdateCalculator() {
+    RenderCalculatorUI();
+}
+
+bool Platform::ProcessCalculatorInput(SDL_Event& event) {
+    if (event.type == SDL_TEXTINPUT) {
+        char c = event.text.text[0];
+        
+        if (calc_input_phase_ == 0) {  // 첫 번째 숫자 입력
+            if (c >= '0' && c <= '9') {
+                calc_num1_ += c;
+            }
+        }
+        else if (calc_input_phase_ == 1) {  // 두 번째 숫자 입력
+            if (c >= '0' && c <= '9') {
+                calc_num2_ += c;
+            }
+        }
+        else if (calc_input_phase_ == 2) {  // 연산자 입력
+            if (c >= '1' && c <= '4') {
+                calc_operation_ = c;
+                CalculateResult();  // 즉시 계산 수행
+                calc_input_ready_ = true;
+            }
+        }
+    }
+    else if (event.type == SDL_KEYDOWN) {
+        if (event.key.keysym.sym == SDLK_SPACE) {
+            // 스페이스로 다음 입력 단계로 이동
+            if (calc_input_phase_ == 0 && !calc_num1_.empty()) {
+                calc_input_phase_ = 1;
+            }
+            else if (calc_input_phase_ == 1 && !calc_num2_.empty()) {
+                calc_input_phase_ = 2;
+            }
+        }
+        else if (event.key.keysym.sym == SDLK_RETURN) {
+            // 엔터로 계산기 종료하고 게임 모드 복귀
+            if (calc_input_ready_) {
+                SwitchToGameMode();
+            }
+        }
+        else if (event.key.keysym.sym == SDLK_BACKSPACE) {
+            // 백스페이스로 현재 입력 삭제
+            if (calc_input_phase_ == 0 && !calc_num1_.empty()) {
+                calc_num1_.pop_back();
+            }
+            else if (calc_input_phase_ == 1 && !calc_num2_.empty()) {
+                calc_num2_.pop_back();
+            }
+            else if (calc_input_phase_ == 2) {
+                calc_operation_.clear();
+                calc_result_.clear();
+                calc_display_result_.clear();
+                calc_input_ready_ = false;
+            }
+        }
+        else if (event.key.keysym.sym == SDLK_ESCAPE) {
+            // ESC로 게임 모드 복귀
+            SwitchToGameMode();
+        }
+    }
+    return false;
+}
+
+void Platform::RenderCalculatorUI() {
+    // 전체 화면을 어둡게
+    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer_, 10, 20, 40, 200);
+    SDL_Rect full_screen = {0, 0, window_width_, window_height_};
+    SDL_RenderFillRect(renderer_, &full_screen);
+
+    if (font_) {
+        SDL_Color white = {255, 255, 255, 255};
+        SDL_Color yellow = {255, 255, 0, 255};
+        SDL_Color green = {0, 255, 0, 255};
+        SDL_Color cyan = {0, 255, 255, 255};
+        SDL_Color red = {255, 100, 100, 255};
+
+        // 제목
+        RenderTextCentered("CHIP-8 Calculator", 50, cyan);
+        
+        // 구분선
+        SDL_SetRenderDrawColor(renderer_, 100, 150, 200, 255);
+        SDL_Rect separator = {50, 80, 540, 2};
+        SDL_RenderFillRect(renderer_, &separator);
+        
+        // 사용법 안내
+        RenderText("Enter: number number operation", 50, 100, white);
+        RenderText("Operations: 1=+ 2=- 3=* 4=/", 50, 120, yellow);
+        
+        // 입력 표시 영역
+        std::string input_display = "Input: ";
+        
+        // 첫 번째 숫자
+        if (calc_input_phase_ >= 0) {
+            input_display += calc_num1_.empty() ? "_" : calc_num1_;
+        }
+        
+        input_display += " ";
+        
+        // 두 번째 숫자  
+        if (calc_input_phase_ >= 1) {
+            input_display += calc_num2_.empty() ? "_" : calc_num2_;
+        }
+        
+        input_display += " ";
+        
+        // 연산자
+        if (calc_input_phase_ >= 2) {
+            input_display += calc_operation_.empty() ? "_" : GetOperationSymbol(calc_operation_);
+        }
+        
+        // 현재 입력 단계 표시
+        if (calc_input_phase_ == 0) input_display += " ← Enter first number";
+        else if (calc_input_phase_ == 1) input_display += " ← Enter second number"; 
+        else if (calc_input_phase_ == 2 && calc_operation_.empty()) input_display += " ← Enter operation (1-4)";
+        
+        RenderText(input_display, 50, 160, green);
+        
+        // 단계별 가이드
+        RenderText("       ↑    ↑   ↑", 50, 180, red);
+        RenderText("     num1 num2 op", 50, 200, red);
+        
+        // 계산 결과 표시
+        if (!calc_display_result_.empty()) {
+            RenderText("Result: " + calc_display_result_, 50, 240, cyan);
+        }
+        
+        // 조작 가이드
+        RenderText("Press SPACE to move to next field", 50, 280, white);
+        RenderText("Press ENTER to confirm and return to game", 50, 300, white);
+        RenderText("Press ESC to cancel", 50, 320, white);
+        
+    } else {
+        // 폰트 없을 때 기본 박스들
+        SDL_Rect input_box1 = {50, 160, 100, 30};
+        SDL_Rect input_box2 = {160, 160, 100, 30};
+        SDL_Rect input_box3 = {270, 160, 50, 30};
+        SDL_Rect result_box = {50, 240, 200, 30};
+        
+        SDL_SetRenderDrawColor(renderer_, 60, 60, 60, 255);
+        SDL_RenderFillRect(renderer_, &input_box1);
+        SDL_RenderFillRect(renderer_, &input_box2);
+        SDL_RenderFillRect(renderer_, &input_box3);
+        SDL_RenderFillRect(renderer_, &result_box);
+        
+        SDL_SetRenderDrawColor(renderer_, 150, 150, 150, 255);
+        SDL_RenderDrawRect(renderer_, &input_box1);
+        SDL_RenderDrawRect(renderer_, &input_box2);
+        SDL_RenderDrawRect(renderer_, &input_box3);
+        SDL_RenderDrawRect(renderer_, &result_box);
+    }
+
+    SDL_RenderPresent(renderer_);
+}
+
+void Platform::CalculateResult() {
+    if (calc_num1_.empty() || calc_num2_.empty() || calc_operation_.empty()) {
+        return;
+    }
+    
+    try {
+        int num1 = std::stoi(calc_num1_);
+        int num2 = std::stoi(calc_num2_);
+        int result = 0;
+        
+        switch (calc_operation_[0]) {
+            case '1': // 덧셈
+                result = num1 + num2;
+                break;
+            case '2': // 뺄셈
+                result = num1 - num2;
+                break;
+            case '3': // 곱셈
+                result = num1 * num2;
+                break;
+            case '4': // 나눗셈
+                if (num2 != 0) {
+                    result = num1 / num2;
+                } else {
+                    calc_display_result_ = "Error: Division by zero";
+                    return;
+                }
+                break;
+            default:
+                calc_display_result_ = "Error: Invalid operation";
+                return;
+        }
+        
+        calc_result_ = std::to_string(result);
+        calc_display_result_ = std::to_string(num1) + " " + GetOperationSymbol(calc_operation_) + " " + std::to_string(num2) + " = " + calc_result_;
+        
+        std::cout << "[Calculator] " << calc_display_result_ << std::endl;
+        
+    } catch (const std::exception& e) {
+        calc_display_result_ = "Error: Invalid input";
+        std::cerr << "[Calculator] Parse error: " << e.what() << std::endl;
+    }
+}
+
+std::string Platform::GetOperationSymbol(const std::string& op) {
+    if (op.empty()) return "";
+    
+    switch (op[0]) {
+        case '1': return "+";
+        case '2': return "-";
+        case '3': return "*";
+        case '4': return "/";
+        default: return "?";
+    }
 }
 
 std::string Platform::GetSelectedFile() {
@@ -515,6 +781,12 @@ void Platform::ClearConsoleInput() {
     current_console_input_.clear();
     console_input_ready_ = false;
 }
+
+void Platform::ClearConsoleOutput() {
+    console_output_.clear();
+    std::cout << "[Platform] Console output buffer cleared" << std::endl;
+}
+
 
 Platform::~Platform() {
     SDL_StopTextInput();

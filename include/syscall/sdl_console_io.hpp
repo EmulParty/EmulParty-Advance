@@ -38,4 +38,7 @@ public:
     // 입력 설정
     void setPendingInput(const std::string& input);
     bool hasInput() const;
+
+    // Platform 접근 함수
+    Platform* getPlatform() const { return platform_;}
 };

@@ -1,4 +1,4 @@
-// sdl_console_io.cpp - 최종 완성 버전
+// sdl_console_io.cpp - 스택 프레임용 콘솔 I/O (완전 수정 버전)
 #include "sdl_console_io.hpp"
 #include "platform.hpp"
 #include <iostream>
@@ -18,7 +18,7 @@ size_t SDLConsoleIO::read(char* buffer, size_t size) {
         return 0;
     }
 
-    std::cout << "[SDLConsoleIO] READ syscall - requesting input from SDL" << std::endl;
+    std::cout << "[SDLConsoleIO] READ syscall - switching to CONSOLE mode for stack frame operations" << std::endl;
 
     if (platform_) {
         // 대기 중인 입력 확인
@@ -35,18 +35,19 @@ size_t SDLConsoleIO::read(char* buffer, size_t size) {
             return bytes_to_copy;
         }
 
-        // 콘솔 모드 강제 진입
-        std::cout << "[SDLConsoleIO] Forcing console mode..." << std::endl;
-        platform_->ForceConsoleMode();
+        // 🔧 **핵심 수정: 콘솔 모드로 전환 (스택 프레임 작업용)**
+        std::cout << "[SDLConsoleIO] Switching to console mode for stack frame input..." << std::endl;
+        platform_->SwitchToConsoleMode();
 
-        // 입력이 들어올 때까지 SDL 이벤트 처리 루프
+
+        // 🔧 **수정: 콘솔 입력이 들어올 때까지 SDL 이벤트 처리 루프**
         while (!platform_->IsConsoleInputReady()) {
             platform_->ProcessEvents();
             platform_->UpdateConsoleInput();
             SDL_Delay(16); // 약 60FPS 대기
         }
 
-        // 입력 가져오기
+        // 🔧 **수정: 콘솔 입력 가져오기**
         std::string input = platform_->GetConsoleInput();
         if (!input.empty()) {
             std::cout << "[SDLConsoleIO] Got console input: " << input << std::endl;
@@ -63,7 +64,7 @@ size_t SDLConsoleIO::read(char* buffer, size_t size) {
             return bytes_to_copy;
         }
 
-        std::cout << "[SDLConsoleIO] No input received" << std::endl;
+        std::cout << "[SDLConsoleIO] No console input received" << std::endl;
         return 0;
     }
 
@@ -118,6 +119,12 @@ void SDLConsoleIO::clearInput() {
     input_buffer_.clear();
     input_ready_ = false;
     pending_input_.clear();
+    while (!output_queue_.empty()){
+        output_queue_.pop();
+    }
+    if(platform_) {
+        platform_->ClearConsoleOutput();
+    }
 }
 
 void SDLConsoleIO::setPendingInput(const std::string& input) {
