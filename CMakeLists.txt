@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 # SDL2 경로 수동 지정 (수동 설치 환경 대응)
 set(SDL2_INCLUDE_DIR "/usr/local/include/SDL2")
-set(SDL2_LIBRARY "/usr/local/lib/libSDL2.so")
+set(SDL2_LIBRARY "/usr/lib/x86_64-linux-gnu/libSDL2.so")
 
 include_directories(${SDL2_INCLUDE_DIR})
 link_libraries(${SDL2_LIBRARY})
