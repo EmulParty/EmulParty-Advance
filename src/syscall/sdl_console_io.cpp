@@ -119,12 +119,18 @@ void SDLConsoleIO::clearInput() {
     input_buffer_.clear();
     input_ready_ = false;
     pending_input_.clear();
-    while (!output_queue_.empty()){
+    
+    // 출력 큐도 클리어
+    while (!output_queue_.empty()) {
         output_queue_.pop();
     }
-    if(platform_) {
-        platform_->ClearConsoleOutput();
+    
+    // Platform의 콘솔 출력도 클리어
+    if (platform_) {
+        platform_->ClearConsoleOutput();  // 새로 추가한 함수 호출
     }
+    
+    std::cout << "[SDLConsoleIO] All input/output cleared" << std::endl;
 }
 
 void SDLConsoleIO::setPendingInput(const std::string& input) {

@@ -1,77 +1,52 @@
-cmake_minimum_required(VERSION 3.10)
-project(chip8_dual_emulator)
+cmake_minimum_required(VERSION 3.16)
+project(NeoCHIP-8 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# SDL2 설정
-set(SDL2_INCLUDE_DIR "/usr/local/include/SDL2")
-set(SDL2_LIBRARY "/usr/lib/x86_64-linux-gnu/libSDL2.so")
-
-# include 디렉토리 설정
-include_directories(include)
-include_directories(include/common)
-include_directories(include/core)
-include_directories(include/platform)
-include_directories(include/debugger)  # 디버거 헤더 경로 추가
-include_directories(${SDL2_INCLUDE_DIR})
-
-# 소스 파일들 명시적으로 지정 (GLOB_RECURSE 대신 명확하게)
-set(CORE_SOURCES
-    src/core/chip8.cpp
-    src/core/chip8_32.cpp
-    src/core/opcode_table.cpp
-    src/core/opcode_table_32.cpp
-    src/core/mode_selector.cpp
+# include 디렉토리
+include_directories(
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/core
+    ${CMAKE_SOURCE_DIR}/include/platform
+    ${CMAKE_SOURCE_DIR}/include/syscall
+    ${CMAKE_SOURCE_DIR}/include/boot
+    ${CMAKE_SOURCE_DIR}/include/common
+    ${CMAKE_SOURCE_DIR}/include/debugger
 )
 
-set(PLATFORM_SOURCES
+# 🔧 mode_selector.cpp가 필요로 하는 모든 파일들 + 스택 프레임 시스템 추가
+set(SRC_FILES
+    src/core/chip8.cpp                      # ✅ 8비트 CHIP-8 (mode_selector에서 사용)
+    src/core/chip8_32.cpp                   # ✅ 32비트 CHIP-8
+    src/core/opcode_table.cpp               # ✅ 8비트 opcode 테이블 (mode_selector에서 사용)
+    src/core/opcode_table_32.cpp            # ✅ 32비트 opcode 테이블
+    src/core/mode_selector.cpp              # ✅ 모드 선택기
+    src/core/stack_frame.cpp                # 🆕 스택 프레임 관리 시스템
+    src/core/stack_opcodes.cpp              # 🆕 스택 명령어 구현
+    src/boot/boot_rom.cpp
+    src/boot/boot_rom_data.cpp
+    src/syscall/io_manager.cpp
+    src/syscall/sdl_console_io.cpp
     src/platform/platform.cpp
-    src/platform/timer.cpp
-)
-
-# 디버거 소스 (올바른 경로로 수정)
-set(DEBUGGER_SOURCES
-    src/debugger/debugger.cpp
-)
-
-set(MAIN_SOURCE
+    src/platform/timer.cpp                  # ✅ timer 함수들 (mode_selector에서 사용)
+    src/debugger/debugger.cpp               # ✅ 디버거 (mode_selector에서 사용)
     src/main.cpp
 )
 
+# pkg-config로 SDL2/SDL2_ttf 검색
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SDL2 REQUIRED sdl2)
+pkg_check_modules(SDL2_TTF REQUIRED SDL2_ttf)
+
+# include 경로 추가
+include_directories(${SDL2_INCLUDE_DIRS} ${SDL2_TTF_INCLUDE_DIRS})
+
 # 실행 파일 생성
-add_executable(chip8_dual
-    ${CORE_SOURCES}
-    ${PLATFORM_SOURCES}
-    ${DEBUGGER_SOURCES}  
-    ${MAIN_SOURCE}
-)
+add_executable(chip8_dual ${SRC_FILES})
 
-# SDL2 링크
-target_link_libraries(chip8_dual ${SDL2_LIBRARY})
+# 라이브러리 링크
+target_link_libraries(chip8_dual ${SDL2_LIBRARIES} ${SDL2_TTF_LIBRARIES})
 
-# 컴파일 옵션 추가 (디버그 정보 및 경고)
-target_compile_options(chip8_dual PRIVATE -Wall -Wextra -g)
-
-# 빌드 정보 출력
-message(STATUS "=== CHIP-8 Dual Mode Emulator Build Configuration ===")
-message(STATUS "Project: ${PROJECT_NAME}")
-message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
-message(STATUS "SDL2 Include: ${SDL2_INCLUDE_DIR}")
-message(STATUS "SDL2 Library: ${SDL2_LIBRARY}")
-message(STATUS "Core Sources: ${CORE_SOURCES}")
-message(STATUS "Platform Sources: ${PLATFORM_SOURCES}")
-message(STATUS "Debugger Sources: ${DEBUGGER_SOURCES}")  # 디버거 소스 정보 추가
-message(STATUS "Executable: chip8_dual")
-message(STATUS "=====================================================")
-
-# 빌드 후 실행 예시 메시지
-add_custom_target(usage
-    COMMAND echo ""
-    COMMAND echo "=== Usage Examples ==="
-    COMMAND echo "8-bit mode:  ./chip8_dual roms/game.ch8"
-    COMMAND echo "32-bit mode: ./chip8_dual roms/demo.ch32"
-    COMMAND echo "Debug mode:  ./chip8_dual --debug roms/game.ch8"
-    COMMAND echo "======================"
-    COMMAND echo ""
-)
+# 🔧 추가: 컴파일 옵션
+target_compile_options(chip8_dual PRIVATE -Wall -Wextra)
