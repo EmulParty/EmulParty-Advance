@@ -62,6 +62,10 @@ void Chip8_32::reset() {
     draw_flag = false;
     last_timer_update = 0;
 
+    // 스택 프레임 레지스터 초기화 (높은 주소에서 시작)
+    R[StackFrame::RSP_INDEX] = 0xEFFF; // 스택 포인터
+    R[StackFrame::RBP_INDEX] = 0xEFFF; // 프레임 포인터
+    
     // 폰트셋 로드 (0x050~0x09F)
     std::memcpy(&memory[0x050], chip8_fontset_32, sizeof(chip8_fontset_32));
 
