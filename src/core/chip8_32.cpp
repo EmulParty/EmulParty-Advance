@@ -65,10 +65,11 @@ void Chip8_32::reset() {
     // 폰트셋 로드 (0x050~0x09F)
     std::memcpy(&memory[0x050], chip8_fontset_32, sizeof(chip8_fontset_32));
 
-    // BootROM 로드
-    load_boot_rom();
     // 스택 프레임 시스템 초기화
     StackFrame::initialize(*this);
+    // BootROM 로드
+    load_boot_rom();
+    
 
     draw_flag = false;
     std::cout << "32-bit CHIP-8 system reset complete" << std::endl;

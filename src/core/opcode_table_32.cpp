@@ -14,11 +14,148 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include <iomanip>
 
 namespace OpcodeTable_32 {
 
+    // === 헬퍼 함수들 ===
+    void debug_write_stack_32(Chip8_32& chip8_32, uint32_t addr, uint32_t value) {
+        chip8_32.set_memory(addr + 0, (value >> 24) & 0xFF);
+        chip8_32.set_memory(addr + 1, (value >> 16) & 0xFF);
+        chip8_32.set_memory(addr + 2, (value >> 8) & 0xFF);
+        chip8_32.set_memory(addr + 3, value & 0xFF);
+        
+        std::cout << "   [WRITE] 0x" << std::hex << std::setw(8) << std::setfill('0') << addr 
+                << " <- 0x" << std::setw(8) << value << " (" << std::dec << value << ")" << std::endl;
+    }
+
+    uint32_t debug_read_stack_32(Chip8_32& chip8_32, uint32_t addr) {
+        uint32_t value = (chip8_32.get_memory(addr + 0) << 24) |
+                        (chip8_32.get_memory(addr + 1) << 16) |
+                        (chip8_32.get_memory(addr + 2) << 8) |
+                        chip8_32.get_memory(addr + 3);
+        
+        std::cout << "   [READ]  0x" << std::hex << std::setw(8) << std::setfill('0') << addr 
+                << " -> 0x" << std::setw(8) << value << " (" << std::dec << value << ")" << std::endl;
+        return value;
+    }
+
+    void debug_print_stack_state(Chip8_32& chip8_32, const std::string& phase) {
+        std::cout << "\n📊 STACK STATE [" << phase << "]:" << std::endl;
+        std::cout << "   RBP = 0x" << std::hex << std::setw(8) << std::setfill('0') << chip8_32.get_RBP() << std::endl;
+        std::cout << "   RSP = 0x" << std::hex << std::setw(8) << std::setfill('0') << chip8_32.get_RSP() << std::endl;
+        std::cout << "   Stack Used: " << std::dec << (0xEFFF - chip8_32.get_RSP()) << " bytes" << std::endl;
+    }
+
+    // === 메인 스택 프레임 시뮬레이션 함수 ===
+    void debug_stack_frame_sum(Chip8_32& chip8_32, uint32_t a, uint32_t b, uint32_t c) {
+        std::cout << "\n" << std::string(60, '=') << std::endl;
+        std::cout << "🔥 STACK FRAME SIMULATION: sum(" << a << ", " << b << ", " << c << ")" << std::endl;
+        std::cout << std::string(60, '=') << std::endl;
+        
+        // 초기 상태 저장
+        uint32_t original_rbp = chip8_32.get_RBP();
+        // uint32_t original_rsp = chip8_32.get_RSP();  // ← 이 줄 제거 (사용안함)
+        
+        debug_print_stack_state(chip8_32, "INITIAL");
+        
+        // === STEP 1: FUNCTION PROLOGUE ===
+        std::cout << "\n🚀 STEP 1: FUNCTION PROLOGUE" << std::endl;
+        
+        // PUSH RBP
+        std::cout << "1.1 PUSH RBP:" << std::endl;
+        chip8_32.set_RSP(chip8_32.get_RSP() - 4);
+        debug_write_stack_32(chip8_32, chip8_32.get_RSP(), original_rbp);
+        
+        // MOV RBP, RSP
+        std::cout << "\n1.2 MOV RBP, RSP:" << std::endl;
+        chip8_32.set_RBP(chip8_32.get_RSP());
+        std::cout << "   New RBP = 0x" << std::hex << chip8_32.get_RBP() << std::endl;
+        
+        // SUB RSP, 16
+        std::cout << "\n1.3 SUB RSP, 16:" << std::endl;
+        chip8_32.set_RSP(chip8_32.get_RSP() - 16);
+        std::cout << "   Allocated 16 bytes, RSP = 0x" << std::hex << chip8_32.get_RSP() << std::endl;
+        
+        debug_print_stack_state(chip8_32, "AFTER PROLOGUE");
+        
+        // === STEP 2: PARAMETER STORAGE ===
+        std::cout << "\n📦 STEP 2: PARAMETER STORAGE" << std::endl;
+        
+        uint32_t addr_a = chip8_32.get_RBP() - 4;
+        uint32_t addr_b = chip8_32.get_RBP() - 8;
+        uint32_t addr_c = chip8_32.get_RBP() - 12;
+        
+        std::cout << "2.1 Store parameter 'a':" << std::endl;
+        debug_write_stack_32(chip8_32, addr_a, a);
+        
+        std::cout << "\n2.2 Store parameter 'b':" << std::endl;
+        debug_write_stack_32(chip8_32, addr_b, b);
+        
+        std::cout << "\n2.3 Store parameter 'c':" << std::endl;
+        debug_write_stack_32(chip8_32, addr_c, c);
+        
+        debug_print_stack_state(chip8_32, "AFTER PARAM STORAGE");
+        
+        // === STEP 3: CALCULATION ===
+        std::cout << "\n🧮 STEP 3: CALCULATION" << std::endl;
+        
+        std::cout << "3.1 Load parameter 'a':" << std::endl;
+        uint32_t val_a = debug_read_stack_32(chip8_32, addr_a);
+        
+        std::cout << "\n3.2 Load parameter 'b':" << std::endl;
+        uint32_t val_b = debug_read_stack_32(chip8_32, addr_b);
+        
+        std::cout << "\n3.3 Calculate a + b:" << std::endl;
+        uint32_t partial = val_a + val_b;
+        std::cout << "   " << val_a << " + " << val_b << " = " << partial << std::endl;
+        
+        std::cout << "\n3.4 Load parameter 'c':" << std::endl;
+        uint32_t val_c = debug_read_stack_32(chip8_32, addr_c);
+        
+        std::cout << "\n3.5 Calculate (a + b) + c:" << std::endl;
+        uint32_t result = partial + val_c;
+        std::cout << "   " << partial << " + " << val_c << " = " << result << std::endl;
+        
+        // 결과를 스택에 저장
+        uint32_t addr_result = chip8_32.get_RBP() - 16;
+        std::cout << "\n3.6 Store result:" << std::endl;
+        debug_write_stack_32(chip8_32, addr_result, result);
+        
+        debug_print_stack_state(chip8_32, "AFTER CALCULATION");
+        
+        // === STEP 4: FUNCTION EPILOGUE ===
+        std::cout << "\n🔄 STEP 4: FUNCTION EPILOGUE" << std::endl;
+        
+        // Load return value (warning 제거: 실제로 사용)
+        std::cout << "4.1 Load return value:" << std::endl;
+        debug_read_stack_32(chip8_32, addr_result);  // ← 변수에 저장하지 않고 바로 호출
+        
+        // ADD RSP, 16 (stack cleanup)
+        std::cout << "\n4.2 ADD RSP, 16 (stack cleanup):" << std::endl;
+        chip8_32.set_RSP(chip8_32.get_RBP());
+        std::cout << "   RSP restored to 0x" << std::hex << chip8_32.get_RSP() << std::endl;
+        
+        // POP RBP
+        std::cout << "\n4.3 POP RBP:" << std::endl;
+        uint32_t restored_rbp = debug_read_stack_32(chip8_32, chip8_32.get_RSP());
+        chip8_32.set_RSP(chip8_32.get_RSP() + 4);
+        chip8_32.set_RBP(restored_rbp);
+        
+        debug_print_stack_state(chip8_32, "FINAL");
+        
+        // === RESULT ===
+        std::cout << "\n" << std::string(60, '=') << std::endl;
+        std::cout << "🎯 RESULT: sum(" << a << ", " << b << ", " << c << ") = " << result << std::endl;
+        std::cout << "✅ Stack frame simulation completed successfully!" << std::endl;
+        std::cout << std::string(60, '=') << std::endl;
+    }
+
     // 20개의 주요 명령 그룹(상위 8비트로 구분)을 처리하기 위한 함수 테이블
     std::array<OpcodeHandler32, 20> primary_table_32;
+
+    // !! 추가 수정 : 이 함수는 이제 실제 스택 프레임 연산 과정을 수행하고 디버깅하는 역할을 합니다.
+    void OP_STACK_FRAME_DEBUG(Chip8_32& chip8_32, uint32_t opcode);
 
     /// @brief 화면을 지우는 명령 (00000E00)
     void OP_00000E00(Chip8_32& chip8_32, uint32_t) {
@@ -573,6 +710,13 @@ namespace OpcodeTable_32 {
     }
 
     void OP_11XXXXXX(Chip8_32& chip8_32, uint32_t opcode) {
+
+        // 스택 프레임 디버그 모드 체크 :: 7월 24일경 수정 내용
+        if (opcode == 0x11111111) {
+            OP_STACK_FRAME_DEBUG(chip8_32, opcode);
+            return;
+        }
+
         uint8_t sub_opcode = (opcode & 0x00FF0000) >> 16;  // 상위 8비트에서 세부 명령어 구분
         
         switch (sub_opcode) {
@@ -696,6 +840,23 @@ namespace OpcodeTable_32 {
             chip8_32.set_pc(chip8_32.get_pc() + 4);
         }
     }
+
+    // === 기존 OP_STACK_FRAME_DEBUG 함수를 이것으로 교체 ===
+    void OP_STACK_FRAME_DEBUG(Chip8_32& chip8_32, uint32_t opcode) {
+        std::cout << "\n🔥 STACK FRAME DEBUG MODE ACTIVATED!" << std::endl;
+        std::cout << "Opcode: 0x" << std::hex << opcode << std::dec << std::endl;
+        
+        // 하드코딩된 값들
+        uint32_t a = 10, b = 20, c = 30;
+        
+        std::cout << "Calculating: sum(" << a << ", " << b << ", " << c << ")" << std::endl;
+        
+        // 완전한 스택 프레임 시뮬레이션 실행
+        debug_stack_frame_sum(chip8_32, a, b, c);
+        
+        chip8_32.set_pc(chip8_32.get_pc() + 4);
+    }
+
 
 }   // namespace OpcodeTable_32 
  

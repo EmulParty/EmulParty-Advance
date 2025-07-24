@@ -5,7 +5,7 @@
 #include <iomanip>
 
 namespace StackOpcodes {
-
+#define DEBUG
 #ifdef DEBUG
 #define LOG_DEBUG(x) std::cout << x << std::endl
 #else
