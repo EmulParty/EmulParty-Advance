@@ -16,7 +16,7 @@ void BootROM::load_into_memory(Chip8_32& chip8) {
     }
     
     // 2. 부팅 메시지를 메모리 0x0100에 저장
-    const char* boot_message = "NeoCHIP-8 BootROM v2.0 - Enter ROM filename: ";
+    const char* boot_message = "";
     size_t msg_len = strlen(boot_message);
     
     for (size_t i = 0; i < msg_len; ++i) {

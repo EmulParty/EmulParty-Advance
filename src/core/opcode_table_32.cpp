@@ -151,8 +151,8 @@ namespace OpcodeTable_32 {
         std::cout << std::string(60, '=') << std::endl;
     }
 
-    // 20개의 주요 명령 그룹(상위 8비트로 구분)을 처리하기 위한 함수 테이블
-    std::array<OpcodeHandler32, 20> primary_table_32;
+    // 0x00 ~ 0xFF 중, 실제로 사용할 명령 그룹을 저장할 함수 테이블 (확장됨)
+    std::array<OpcodeHandler32, MAX_OPCODES> primary_table_32;
 
     // !! 추가 수정 : 이 함수는 이제 실제 스택 프레임 연산 과정을 수행하고 디버깅하는 역할을 합니다.
     void OP_STACK_FRAME_DEBUG(Chip8_32& chip8_32, uint32_t opcode);
@@ -301,6 +301,65 @@ namespace OpcodeTable_32 {
         uint8_t y = (opcode & 0x0000FF00) >> 8;   // 두 번째 레지스터
         bool not_equal = (chip8_32.get_R(x) != chip8_32.get_R(y));
         chip8_32.set_pc(chip8_32.get_pc() + (not_equal ? 8 : 4));
+    }
+
+    /// @brief Vx의 하위 8비트를 메모리[Vy]에 저장 (20XXYY00)
+    void OP_20XXYY00(Chip8_32& chip8_32, uint32_t opcode) {
+        uint8_t x = (opcode & 0x00FF0000) >> 16;   // 값이 있는 레지스터
+        uint8_t y = (opcode & 0x0000FF00) >> 8;    // 주소가 있는 레지스터
+
+        uint32_t address = chip8_32.get_R(y);
+
+        if (address >= MEMORY_SIZE_32) {
+            std::cerr << "[OP_20XXYY00] Memory access out of bounds: 0x"
+                      << std::hex << address << std::dec << std::endl;
+            chip8_32.set_pc(chip8_32.get_pc() + 4);
+            return;
+        }
+
+        // Vx의 하위 8비트(1바이트)만 저장
+        uint8_t low_byte = static_cast<uint8_t>(chip8_32.get_R(x) & 0xFF);
+        chip8_32.set_memory(address, low_byte);
+
+        // 디버그 출력 (선택)
+        std::cout << "[OP_20XXYY00] MEM[0x" << std::hex << address << "] <- 0x"
+                  << std::setw(2) << std::setfill('0') << static_cast<int>(low_byte)
+                  << " (R" << std::dec << static_cast<int>(x) << " 하위 바이트)" << std::endl;
+
+        chip8_32.set_pc(chip8_32.get_pc() + 4);
+    }
+
+    /// @brief 주소 NNNN에 저장된 1바이트 값을 Vx 레지스터에 로드 (21XXNNNN)
+    void OP_21XXNNNN(Chip8_32& chip8_32, uint32_t opcode) {
+        uint8_t x = (opcode & 0x00FF0000) >> 16;        // 대상 레지스터 인덱스 (XX)
+        uint32_t address = opcode & 0x0000FFFF;         // 메모리 주소 (NNNN)
+
+        // 레지스터 범위 검증
+        if (x >= NUM_REGISTERS_32) {
+            std::cerr << "[OP_21XXNNNN] Register index out of bounds: "
+                      << static_cast<int>(x) << std::endl;
+            chip8_32.set_pc(chip8_32.get_pc() + 4);
+            return;
+        }
+
+        // 메모리 주소 범위 검증
+        if (address >= MEMORY_SIZE_32) {
+            std::cerr << "[OP_21XXNNNN] Memory access out of bounds: 0x"
+                      << std::hex << address << std::dec << std::endl;
+            chip8_32.set_pc(chip8_32.get_pc() + 4);
+            return;
+        }
+
+        uint8_t value = chip8_32.get_memory(address);   // 1바이트 로드
+        chip8_32.set_R(x, static_cast<uint32_t>(value)); // 상위 24비트는 0으로
+
+        // 디버그 로그
+        std::cout << "[OP_21XXNNNN] R" << std::dec << static_cast<int>(x)
+                  << " <- 0x" << std::hex << std::setw(2) << std::setfill('0')
+                  << static_cast<int>(value) << " (MEM[0x" << std::setw(4)
+                  << address << "])" << std::dec << std::endl;
+
+        chip8_32.set_pc(chip8_32.get_pc() + 4);
     }
 
     /// @brief I에 주소 NNNNNN 저장 (0ANNNNNN)
@@ -819,6 +878,9 @@ namespace OpcodeTable_32 {
         primary_table_32[0x0F] = OP_0FXXCCCC;  // Fx 계열 (타이머/메모리 함수) 확장 명령들 처리
         primary_table_32[0x10] = OP_10SAAAAF;  // SYSCALL 처리
         primary_table_32[0x11] = OP_11XXXXXX;  // 스택 프레임 명령어 핸들러
+        // === 메모리-레지스터 단일 바이트 전송 명령 ===
+        primary_table_32[0x20] = OP_20XXYY00;  // Vx 하위 8비트를 주소 Ry에 저장
+        primary_table_32[0x21] = OP_21XXNNNN;  // 주소 NNNN에서 1바이트를 Vx에 로드
     }
 
     /// @brief opcode를 상위 8비트로 분기하여 실행
