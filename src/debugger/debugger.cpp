@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <limits>
 
 namespace chip8emu {
 
@@ -251,26 +252,22 @@ void Debugger32::printState(uint32_t opcode) {
               << "  Delay=" << static_cast<int>(chip8_.get_delay_timer())
               << "  Sound=" << static_cast<int>(chip8_.get_sound_timer()) << "\n\n";
 
-    // 🔥 **5) 실시간 스택 프레임 시각화 (4단계 완성!)**
     StackVisualizer visualizer;
-    
-    // 스택 프레임 명령어인지 확인
+
     uint8_t first_byte = (opcode >> 24) & 0xFF;
     if (first_byte == 0x11) {
-        // 스택 프레임 명령어 실행 중
         std::string instruction_name = getStackInstructionName(opcode);
         visualizer.animateStackFrame(chip8_, instruction_name, instruction_name, false);
     } else {
-        // 일반 명령어 - 기본 스택 상태만 표시
         visualizer.drawStackFrame(chip8_, "CURRENT STATE");
     }
 
     std::cout << std::string(60, '-') << "\n";
 
-    // 스텝 모드에서 사용자 입력 대기
     if (step_mode_) {
         handleDebugInput();
     }
+
 }
 
 std::string Debugger32::disassemble(uint32_t opcode) {
@@ -336,11 +333,19 @@ void Debugger32::handleDebugInput() {
         std::cout << "➤ Exiting debugger..." << std::endl;
     }
     else if (input == "sf" || input == "stackframe") {
-        // 🔥 **4단계 완성: 대화형 스택 프레임 데모**
-        StackVisualizer visualizer;
-        visualizer.interactiveStackDebug(chip8_);
-        handleDebugInput(); // 데모 후 다시 디버그 입력으로
+        std::cout << "\n📝 Enter three numbers for stack demo: ";
+        uint32_t a, b, c;
+        if (std::cin >> a >> b >> c) {
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            terminalStackFrameDemo(chip8_, a, b, c);
+        } else {
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            terminalStackFrameDemo(chip8_, 10, 20, 30);
+        }
+        handleDebugInput();
     }
+
     else if (input.substr(0, 2) == "bp") {
         if (input.length() > 3) {
             try {
@@ -397,9 +402,8 @@ void Debugger32::drawStackDiagram(const Chip8_32& chip8_32, uint32_t highlight_a
 }
 
 // ===============================================
-// 🔥 StackVisualizer 완전한 구현 (4단계 완성)
+// 🔥 StackVisualizer 완전한 구현 2개 매개변수 버전으로 수정
 // ===============================================
-
 void StackVisualizer::drawStackFrame(const Chip8_32& chip8_32, const std::string& phase, uint32_t highlight_addr) {
     uint32_t rbp = chip8_32.get_R(StackFrame::RBP_INDEX);
     uint32_t rsp = chip8_32.get_R(StackFrame::RSP_INDEX);
@@ -409,12 +413,13 @@ void StackVisualizer::drawStackFrame(const Chip8_32& chip8_32, const std::string
         std::cout << std::string(50, '=') << std::endl;
     }
     
-    // 🔥 **실시간 스택 메모리 분석**
+    // 🎨 **픽셀 아트 스타일 스택 프레임**
     analyzeRealTimeStack(chip8_32);
     
-    std::cout << "\n┌─────────────────────────────────┐ ← 0x" << std::hex << std::uppercase << StackFrame::STACK_START << " (STACK_START)" << std::endl;
+    std::cout << "\n╔════════════════════════════════════════╗ ← 0x" << std::hex << std::uppercase << StackFrame::STACK_START << " (STACK_START)" << std::endl;
+    std::cout << "║                                        ║ ← RBP & RSP" << std::endl;
     
-    // 🔥 **실제 메모리 데이터 기반 스택 시각화**
+    // 실제 메모리 데이터 기반 스택 시각화
     uint32_t stack_size = StackFrame::STACK_START - rsp;
     uint32_t cells_to_show = std::min(stack_size / 4 + 4, 16u);
     
@@ -423,30 +428,72 @@ void StackVisualizer::drawStackFrame(const Chip8_32& chip8_32, const std::string
         
         if (addr < StackFrame::STACK_END) break;
         
-        // 🔥 **실제 메모리에서 32비트 값 읽기**
+        // 실제 메모리에서 32비트 값 읽기
         uint32_t memory_value = 0;
         if (addr + 3 < MEMORY_SIZE_32) {
             memory_value = (chip8_32.get_memory(addr) << 24) |
-                          (chip8_32.get_memory(addr + 1) << 16) |
-                          (chip8_32.get_memory(addr + 2) << 8) |
-                          chip8_32.get_memory(addr + 3);
+                           (chip8_32.get_memory(addr + 1) << 16) |
+                           (chip8_32.get_memory(addr + 2) << 8) |
+                            chip8_32.get_memory(addr + 3);
         }
         
-        std::string cell_display = formatStackCell(addr, memory_value, rbp, rsp, highlight_addr);
+        std::string cell_display = formatStackCellPixel(addr, memory_value, rbp, rsp, highlight_addr);
         std::string pointer_info = getPointerInfo(addr, rbp, rsp);
         
-        std::cout << "├─────────────────────────────────┤" << pointer_info << std::endl;
-        std::cout << "│ " << cell_display << " │" << std::endl;
+        std::cout << "╠════════════════════════════════════════╣" << pointer_info << std::endl;
+        std::cout << "║ " << cell_display << " ║" << std::endl;
         
-        if (addr == rsp) {
-            if (i < 3) continue;
-            else break;
-        }
+        if (addr == rsp && i >= 3) break;
     }
     
-    std::cout << "└─────────────────────────────────┘ ← 0x" << std::hex << StackFrame::STACK_END << " (STACK_END)" << std::endl;
+    std::cout << "╚════════════════════════════════════════╝ ← 0x" << std::hex << StackFrame::STACK_END << " (STACK_END)" << std::endl;
     
     drawAdvancedPointers(chip8_32, rbp, rsp);
+}
+
+// 🎨 **새로운 픽셀 스타일 포맷 함수 추가**
+std::string StackVisualizer::formatStackCellPixel(uint32_t addr, uint32_t value, uint32_t rbp, uint32_t rsp, uint32_t highlight_addr) {
+    bool is_highlighted = (addr == highlight_addr);
+    StackCell* cell = findCell(addr);
+    
+    std::ostringstream oss;
+    
+    // 픽셀 아트 스타일 아이콘
+    if (is_highlighted) {
+        oss << "★ ";
+    } else if (cell) {
+        oss << getPixelEmoji(cell->type) << " ";
+    } else {
+        oss << "▓ ";
+    }
+    
+    // 주소 표시 (픽셀 스타일)
+    oss << "0x" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << addr << ": ";
+    
+    // 값 및 라벨 표시
+    if (cell && !cell->label.empty()) {
+        oss << std::left << std::setw(24) << cell->label;
+    } else if (value != 0) {
+        oss << "VAL=0x" << std::setw(8) << std::setfill('0') << value;
+        oss << " (" << std::dec << std::setw(6) << value << ")";
+    } else {
+        oss << std::left << std::setw(24) << "[████ EMPTY ████]";
+    }
+    
+    return oss.str();
+}
+
+// 🎨 **픽셀 아트 이모지 함수 추가**
+std::string StackVisualizer::getPixelEmoji(StackCellType type) {
+    switch (type) {
+        case StackCellType::EMPTY:     return "▓";
+        case StackCellType::OLD_RBP:   return "■";
+        case StackCellType::PARAMETER: return "●";
+        case StackCellType::LOCAL_VAR: return "◆";
+        case StackCellType::RESULT:    return "◉";
+        case StackCellType::HIGHLIGHT: return "★";
+        default:                       return "▓";
+    }
 }
 
 // 🎬 **4.3 스택 프레임 애니메이션 구현**
@@ -456,7 +503,7 @@ void StackVisualizer::animateStackFrame(const Chip8_32& chip8_32, const std::str
     
     std::cout << "\n";
     std::cout << "🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥\n";
-    std::cout << "🚀          STACK FRAME ANIMATION DEBUGGER         🚀\n";
+    std::cout << "🚀          STACK FRAME ANIMATION DEBUGGER                 🚀\n";
     std::cout << "🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥\n";
     
     if (!instruction.empty()) {
@@ -478,14 +525,14 @@ void StackVisualizer::interactiveStackDebug(Chip8_32& chip8_32) {
     std::cout << "🔥        INTERACTIVE STACK FRAME DEBUGGER        🔥\n";
     std::cout << "🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮\n\n";
     
-    std::cout << "🎯 TARGET: Demonstrate sum(10, 20, 30) = 60 with Stack Frame\n\n";
+    std::cout << "🎯 TARGET: Demonstrate sum(10, 20) = 30 with Stack Frame\n\n";
     
     animateStackFrame(chip8_32, "INITIAL STATE", "Starting with empty stack");
     
     simulateFunctionCall(chip8_32);
     
-    std::cout << "\n✅ Stack Frame Animation Complete!\n";
-    std::cout << "🎯 Commands: [r]eplay, [s]tack dump, [q]uit: ";
+    std::cout << "\n Stack Frame Animation Complete!\n";
+    std::cout << " Commands: [r]eplay, [s]tack dump, [q]uit: ";
     
     std::string input;
     std::getline(std::cin, input);
@@ -498,6 +545,7 @@ void StackVisualizer::interactiveStackDebug(Chip8_32& chip8_32) {
     }
 }
 
+// 2개 매개벼수 버전으로 수정된 시뮬레이션 함수
 void StackVisualizer::simulateFunctionCall(Chip8_32& chip8_32) {
     uint32_t original_rbp = chip8_32.get_R(StackFrame::RBP_INDEX);
     uint32_t original_rsp = chip8_32.get_R(StackFrame::RSP_INDEX);
@@ -509,11 +557,11 @@ void StackVisualizer::simulateFunctionCall(Chip8_32& chip8_32) {
     animateStackFrame(chip8_32, "STEP 1: FUNCTION PROLOGUE", "MOV RBP, RSP");
     
     chip8_32.set_R(StackFrame::RBP_INDEX, chip8_32.get_R(StackFrame::RSP_INDEX));
-    animateStackFrame(chip8_32, "STEP 1: FUNCTION PROLOGUE", "SUB RSP, 16");
+    animateStackFrame(chip8_32, "STEP 1: FUNCTION PROLOGUE", "SUB RSP, 12");  // 12바이트로 수정 (2개 매개변수 + 1개 결과)
     
-    chip8_32.set_R(StackFrame::RSP_INDEX, chip8_32.get_R(StackFrame::RSP_INDEX) - 16);
+    chip8_32.set_R(StackFrame::RSP_INDEX, chip8_32.get_R(StackFrame::RSP_INDEX) - 12);  // 12바이트로 수정
     
-    // 2. PARAMETER SETUP
+    // 2. PARAMETER SETUP (2개 매개변수)
     animateStackFrame(chip8_32, "STEP 2: PARAMETER SETUP", "MOV [RBP-4], 10 (param a)");
     
     uint32_t rbp = chip8_32.get_R(StackFrame::RBP_INDEX);
@@ -531,32 +579,23 @@ void StackVisualizer::simulateFunctionCall(Chip8_32& chip8_32) {
     chip8_32.set_memory(addr_b + 2, 0);
     chip8_32.set_memory(addr_b + 3, 20);
     
-    animateStackFrame(chip8_32, "STEP 2: PARAMETER SETUP", "MOV [RBP-12], 30 (param c)", true);
-    
-    uint32_t addr_c = rbp - 12;
-    chip8_32.set_memory(addr_c, 0);
-    chip8_32.set_memory(addr_c + 1, 0);
-    chip8_32.set_memory(addr_c + 2, 0);
-    chip8_32.set_memory(addr_c + 3, 30);
-    
-    // 3. CALCULATION
+    // 3. CALCULATION (2개 매개변수)
     animateStackFrame(chip8_32, "STEP 3: CALCULATION", "MOV R3, [RBP-4] ; R3 = a = 10", true);
     animateStackFrame(chip8_32, "STEP 3: CALCULATION", "ADD R3, [RBP-8] ; R3 = 10 + 20 = 30", true);
-    animateStackFrame(chip8_32, "STEP 3: CALCULATION", "ADD R3, [RBP-12] ; R3 = 30 + 30 = 60", true);
     
     // 결과 저장
-    uint32_t addr_result = rbp - 16;
+    uint32_t addr_result = rbp - 12;
     chip8_32.set_memory(addr_result, 0);
     chip8_32.set_memory(addr_result + 1, 0);
     chip8_32.set_memory(addr_result + 2, 0);
-    chip8_32.set_memory(addr_result + 3, 60);
+    chip8_32.set_memory(addr_result + 3, 30);  // 결과를 30으로 수정
     
-    animateStackFrame(chip8_32, "STEP 3: CALCULATION", "MOV [RBP-16], R3 ; result = 60", true);
+    animateStackFrame(chip8_32, "STEP 3: CALCULATION", "MOV [RBP-12], R3 ; result = 30", true);
     
     // 4. FUNCTION EPILOGUE
-    animateStackFrame(chip8_32, "STEP 4: FUNCTION EPILOGUE", "ADD RSP, 16 ; cleanup local vars", true);
+    animateStackFrame(chip8_32, "STEP 4: FUNCTION EPILOGUE", "ADD RSP, 12 ; cleanup local vars", true);  // 12바이트로 수정
     
-    chip8_32.set_R(StackFrame::RSP_INDEX, chip8_32.get_R(StackFrame::RSP_INDEX) + 16);
+    chip8_32.set_R(StackFrame::RSP_INDEX, chip8_32.get_R(StackFrame::RSP_INDEX) + 12);  // 12바이트로 수정
     
     animateStackFrame(chip8_32, "STEP 4: FUNCTION EPILOGUE", "POP RBP ; restore old frame", true);
     
@@ -570,11 +609,138 @@ void StackVisualizer::simulateFunctionCall(Chip8_32& chip8_32) {
     std::cout << "\n🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉\n";
     std::cout << "🔥           STACK FRAME SIMULATION COMPLETE!        🔥\n";
     std::cout << "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉\n\n";
-    std::cout << "✅ RESULT: sum(10, 20, 30) = 60\n";
+    std::cout << "✅ RESULT: sum(10, 20) = 30\n";  // 결과를 30으로 수정
     std::cout << "✅ Stack frame properly created and destroyed\n";
-    std::cout << "✅ All parameters correctly passed and computed\n\n";
+    std::cout << "✅ Both parameters correctly passed and computed\n\n";  // "All" → "Both"로 수정
     
     waitForUser("Press ENTER to continue...");
+}
+
+// 기존 debugger.cpp 파일에서 terminalStackFrameDemo 함수를 다음과 같이 교체
+void Debugger32::terminalStackFrameDemo(Chip8_32& chip8_32, uint32_t a, uint32_t b) {
+    std::cout << " Target: sum(" << a << ", " << b << ", " << c << ") = " << (a+b+c) << std::endl;
+    std::cout << " Press ENTER after each step to continue...\n" << std::endl;
+    
+    // StackVisualizer 인스턴스 생성
+    StackVisualizer visualizer;
+    
+    // 원본 스택 상태 저장
+    uint32_t original_rbp = chip8_32.get_RBP();
+    uint32_t original_rsp = chip8_32.get_RSP();
+    
+    // === STEP 1: 초기 상태 ===
+    std::cout << "📍 STEP 1: Initial Stack State" << std::endl;
+    visualizer.drawStackFrame(chip8_32, "INITIAL STATE");
+    std::cout << "Press ENTER to continue...";
+    std::cin.get();
+    
+    // === STEP 2: PUSH RBP ===
+    std::cout << "\n📍 STEP 2: PUSH RBP (Function Prologue)" << std::endl;
+    chip8_32.set_RSP(chip8_32.get_RSP() - 4);
+    // 실제로 스택에 이전 RBP 저장
+    uint32_t rsp = chip8_32.get_RSP();
+    chip8_32.set_memory(rsp + 0, (original_rbp >> 24) & 0xFF);
+    chip8_32.set_memory(rsp + 1, (original_rbp >> 16) & 0xFF);
+    chip8_32.set_memory(rsp + 2, (original_rbp >> 8) & 0xFF);
+    chip8_32.set_memory(rsp + 3, original_rbp & 0xFF);
+    
+    visualizer.animateStackFrame(chip8_32, "PUSH RBP", "push rbp - Save previous frame pointer");
+    
+    // === STEP 3: MOV RBP, RSP ===
+    std::cout << "\n📍 STEP 3: MOV RBP, RSP (Set Frame Base)" << std::endl;
+    chip8_32.set_RBP(chip8_32.get_RSP());
+    visualizer.animateStackFrame(chip8_32, "MOV RBP, RSP", "mov rbp, rsp - Establish new frame base");
+    
+    // === STEP 4: SUB RSP, 16 ===
+    std::cout << "\n📍 STEP 4: SUB RSP, 16 (Allocate Local Space)" << std::endl;
+    chip8_32.set_RSP(chip8_32.get_RSP() - 16);
+    visualizer.animateStackFrame(chip8_32, "SUB RSP, 16", "sub rsp, 16 - Allocate space for parameters");
+    
+    // === STEP 5: Store parameter a ===
+    std::cout << "\n📍 STEP 5: Store parameter a = " << a << std::endl;
+    uint32_t rbp = chip8_32.get_RBP();
+    uint32_t addr_a = rbp - 4;
+    chip8_32.set_memory(addr_a + 0, (a >> 24) & 0xFF);
+    chip8_32.set_memory(addr_a + 1, (a >> 16) & 0xFF);
+    chip8_32.set_memory(addr_a + 2, (a >> 8) & 0xFF);
+    chip8_32.set_memory(addr_a + 3, a & 0xFF);
+    
+    visualizer.animateStackFrame(chip8_32, "STORE PARAM A", 
+        "mov [rbp-4], " + std::to_string(a) + " - Store first parameter");
+    
+    // === STEP 6: Store parameter b ===
+    std::cout << "\n📍 STEP 6: Store parameter b = " << b << std::endl;
+    uint32_t addr_b = rbp - 8;
+    chip8_32.set_memory(addr_b + 0, (b >> 24) & 0xFF);
+    chip8_32.set_memory(addr_b + 1, (b >> 16) & 0xFF);
+    chip8_32.set_memory(addr_b + 2, (b >> 8) & 0xFF);
+    chip8_32.set_memory(addr_b + 3, b & 0xFF);
+    
+    visualizer.animateStackFrame(chip8_32, "STORE PARAM B", 
+        "mov [rbp-8], " + std::to_string(b) + " - Store second parameter");
+    
+    // === STEP 7: Store parameter c ===
+    std::cout << "\n📍 STEP 7: Store parameter c = " << c << std::endl;
+    uint32_t addr_c = rbp - 12;
+    chip8_32.set_memory(addr_c + 0, (c >> 24) & 0xFF);
+    chip8_32.set_memory(addr_c + 1, (c >> 16) & 0xFF);
+    chip8_32.set_memory(addr_c + 2, (c >> 8) & 0xFF);
+    chip8_32.set_memory(addr_c + 3, c & 0xFF);
+    
+    visualizer.animateStackFrame(chip8_32, "STORE PARAM C", 
+        "mov [rbp-12], " + std::to_string(c) + " - Store third parameter");
+    
+    // === STEP 8: Calculate result ===
+    std::cout << "\n📍 STEP 8: Perform Calculation" << std::endl;
+    std::cout << "Loading values from stack and computing sum..." << std::endl;
+    
+    uint32_t result = a + b + c;
+    uint32_t addr_result = rbp - 16;
+    chip8_32.set_memory(addr_result + 0, (result >> 24) & 0xFF);
+    chip8_32.set_memory(addr_result + 1, (result >> 16) & 0xFF);
+    chip8_32.set_memory(addr_result + 2, (result >> 8) & 0xFF);
+    chip8_32.set_memory(addr_result + 3, result & 0xFF);
+    
+    visualizer.animateStackFrame(chip8_32, "CALCULATION COMPLETE", 
+        "add operations: " + std::to_string(a) + "+" + std::to_string(b) + "+" + std::to_string(c) + "=" + std::to_string(result));
+    
+    // === STEP 9: Function Epilogue ===
+    std::cout << "\n📍 STEP 9: Function Epilogue (Cleanup)" << std::endl;
+    
+    // ADD RSP, 16 - 스택 정리
+    chip8_32.set_RSP(chip8_32.get_RBP());
+    visualizer.animateStackFrame(chip8_32, "STACK CLEANUP", "add rsp, 16 - Release local variables");
+    
+    // POP RBP - 이전 프레임 복원
+    chip8_32.set_RBP(original_rbp);
+    chip8_32.set_RSP(original_rsp);
+    visualizer.animateStackFrame(chip8_32, "FRAME RESTORED", "pop rbp - Restore previous frame");
+    
+    // === 최종 결과 표시 ===
+    visualizer.clearScreen();
+    std::cout << "\n🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉\n";
+    std::cout << "🔥           STACK FRAME DEMO COMPLETE!             🔥\n";
+    std::cout << "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉\n\n";
+    std::cout << "✅ RESULT: sum(" << a << ", " << b << ", " << c << ") = " << result << std::endl;
+    std::cout << "✅ Stack frame properly created and destroyed" << std::endl;
+    std::cout << "✅ All parameters correctly passed via stack" << std::endl;
+    std::cout << "✅ Memory operations validated with real addresses" << std::endl;
+    
+    std::cout << "\n🎯 SUMMARY:" << std::endl;
+    std::cout << "   • Function prologue: PUSH RBP, MOV RBP RSP, SUB RSP" << std::endl;
+    std::cout << "   • Parameter storage: [RBP-4], [RBP-8], [RBP-12]" << std::endl;
+    std::cout << "   • Calculation: Load→Add→Store result at [RBP-16]" << std::endl;
+    std::cout << "   • Function epilogue: ADD RSP, POP RBP, return" << std::endl;
+    
+    std::cout << "\nPress ENTER to return to debugger...";
+    std::cin.get();
+}
+
+// 또한 기존의 간단한 drawStackFrame 함수도 개선
+void Debugger32::drawStackFrame(const Chip8_32& chip8_32, const std::string& phase) {
+    // StackVisualizer를 직접 사용
+    StackVisualizer visualizer;
+    visualizer.drawStackFrame(chip8_32, phase);
 }
 
 // 🎬 애니메이션 헬퍼 함수들
@@ -599,7 +765,6 @@ void StackVisualizer::showInstructionInfo(const std::string& instruction, const 
     std::cout << "   " << description << "\n\n";
 }
 
-// 🚀 **실시간 스택 메모리 분석**
 void StackVisualizer::analyzeRealTimeStack(const Chip8_32& chip8_32) {
     uint32_t rbp = chip8_32.get_R(StackFrame::RBP_INDEX);
     uint32_t rsp = chip8_32.get_R(StackFrame::RSP_INDEX);
@@ -624,9 +789,9 @@ void StackVisualizer::analyzeRealTimeStack(const Chip8_32& chip8_32) {
         addStackCell(rbp, saved_rbp, StackCellType::OLD_RBP, "Saved RBP");
     }
     
-    // 매개변수/지역변수 자동 감지
+    // 매개변수/지역변수 자동 감지 (2개 매개변수 버전)
     uint32_t param_count = 0;
-    for (uint32_t offset = 4; offset <= 16; offset += 4) {
+    for (uint32_t offset = 4; offset <= 12; offset += 4) {  // 12바이트까지만 체크
         uint32_t addr = rbp - offset;
         if (addr >= rsp && addr >= StackFrame::STACK_END) {
             uint32_t value = (chip8_32.get_memory(addr) << 24) |
@@ -642,9 +807,6 @@ void StackVisualizer::analyzeRealTimeStack(const Chip8_32& chip8_32) {
                 type = StackCellType::PARAMETER;
             } else if (param_count == 1) {
                 label = "param b = " + std::to_string(value);
-                type = StackCellType::PARAMETER;
-            } else if (param_count == 2) {
-                label = "param c = " + std::to_string(value);
                 type = StackCellType::PARAMETER;
             } else {
                 label = "result = " + std::to_string(value);
@@ -671,10 +833,8 @@ std::string StackVisualizer::formatStackCell(uint32_t addr, uint32_t value, uint
         oss << "   ";
     }
     
-    // 주소 표시
     oss << "0x" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << addr << ": ";
     
-    // 값 및 라벨 표시
     if (cell && !cell->label.empty()) {
         oss << std::left << std::setw(18) << cell->label;
     } else if (value != 0) {
@@ -686,6 +846,7 @@ std::string StackVisualizer::formatStackCell(uint32_t addr, uint32_t value, uint
     
     return oss.str();
 }
+
 
 std::string StackVisualizer::getPointerInfo(uint32_t addr, uint32_t rbp, uint32_t rsp) {
     if (addr == rbp && addr == rsp) {
@@ -748,7 +909,7 @@ void StackVisualizer::clearCells() {
 void StackVisualizer::drawStackBox(uint32_t start_addr, uint32_t end_addr) {
     std::cout << "┌─────────────────────┐ ← 0x" << std::hex << start_addr << std::endl;
     std::cout << "│                     │" << std::endl;
-    std::cout << "│     [STACK]         │" << std::endl;
+    std::cout << "│       [STACK]       │" << std::endl;
     std::cout << "│                     │" << std::endl;
     std::cout << "└─────────────────────┘ ← 0x" << std::hex << end_addr << std::endl;
 }
@@ -761,7 +922,7 @@ void StackVisualizer::drawStackCell(const StackCell& cell) {
 }
 
 void StackVisualizer::drawPointers(uint32_t rbp, uint32_t rsp) {
-    std::cout << "\n🎯 Pointer Status:" << std::endl;
+    std::cout << "\n Pointer Status:" << std::endl;
     std::cout << "   RBP (Base) = 0x" << std::hex << std::setw(8) << std::setfill('0') << rbp << std::endl;
     std::cout << "   RSP (Top)  = 0x" << std::hex << std::setw(8) << std::setfill('0') << rsp << std::endl;
     std::cout << "   Used: " << std::dec << (0xEFFF - rsp) << " bytes" << std::endl;
@@ -787,5 +948,6 @@ StackCell* StackVisualizer::findCell(uint32_t addr) {
     }
     return nullptr;
 }
+
 
 } // namespace chip8emu

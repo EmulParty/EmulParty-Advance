@@ -5,8 +5,8 @@
 #include <unordered_map>
 #include <iostream>
 
-constexpr uint8_t IMPLEMENTED_OPCODES = 19;  // 현재 구현된 opcode 수
-constexpr uint8_t MAX_OPCODES = 20;          // 최대 확장 가능한 opcode 수
+constexpr uint8_t IMPLEMENTED_OPCODES = 33;  // 현재 구현된 opcode 수
+constexpr uint8_t MAX_OPCODES = 64;          // 최대 확장 가능한 opcode 수
 
 class Chip8_32; // 전방 선언 
 

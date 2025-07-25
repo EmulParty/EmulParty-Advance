@@ -93,6 +93,8 @@ public:
      */
     void interactiveStackDebug(Chip8_32& chip8_32);
     
+    void clearScreen();
+
     /**
      * @brief 스택 셀 추가
      * @param addr 주소
@@ -173,7 +175,7 @@ private:
     /**
      * @brief 🎬 애니메이션 헬퍼 함수들
      */
-    void clearScreen();
+    
     void waitForUser(const std::string& message = "Press ENTER to continue...");
     void showInstructionInfo(const std::string& instruction, const std::string& description);
     void simulateFunctionCall(Chip8_32& chip8_32);  // 🔧 추가
@@ -191,6 +193,10 @@ private:
      * @return 찾은 셀의 포인터 (없으면 nullptr)
      */
     StackCell* findCell(uint32_t addr);
+
+    std::string formatStackCellPixel(uint32_t addr, uint32_t value, uint32_t rbp, uint32_t rsp, uint32_t highlight_addr);
+    std::string getPixelEmoji(StackCellType type);
+
 };
 
 // 32비트용 디버거
@@ -218,6 +224,10 @@ public:
     
     // 🔥 **4단계 완성: 스택 프레임 시각화 통합**
     std::string getStackInstructionName(uint32_t opcode);
+    
+    // 기존 함수들 아래에 추가
+    void terminalStackFrameDemo(Chip8_32& chip8_32, uint32_t a, uint32_t b, uint32_t c);
+    void drawStackFrame(const Chip8_32& chip8_32, const std::string& phase);
 
 private:
     Chip8_32& chip8_;
