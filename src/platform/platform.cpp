@@ -84,7 +84,7 @@ bool Platform::Initialize() {
         return false;
     }
 
-    // 폰트 로드 시도 - Press Start 2P 우선
+    // 🔥 폰트 로드 시도 - 크기를 더 크게!
     const char* font_paths[] = {
         "./PressStart2P.ttf",  // 다운로드한 Press Start 2P 폰트
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -97,12 +97,37 @@ bool Platform::Initialize() {
     };
 
     for (int i = 0; font_paths[i] != nullptr; ++i) {
-        // Press Start 2P는 작은 크기로, 다른 폰트는 기본 크기로
-        int font_size = (i == 0) ? 16 : 24;
+        // 일반 폰트는 작은 크기로 복원
+        int font_size = (i == 0) ? 16 : 18;  // Press Start 2P는 16px, 다른 폰트는 18px
         font_ = TTF_OpenFont(font_paths[i], font_size);
         if (font_) {
             std::cout << "[INFO] Font loaded: " << font_paths[i] << " (size: " << font_size << ")" << std::endl;
             break;
+        }
+    }
+
+    // E.P.A용 큰 폰트 로드 (기존 폰트의 5배 크기)
+    if (font_) {
+        const char* font_path = nullptr;
+        // 현재 로드된 폰트 경로 찾기
+        for (int i = 0; font_paths[i] != nullptr; ++i) {
+            TTF_Font* test_font = TTF_OpenFont(font_paths[i], 16);
+            if (test_font) {
+                font_path = font_paths[i];
+                TTF_CloseFont(test_font);
+                break;
+            }
+        }
+        
+        if (font_path) {
+            int large_size = (font_path == font_paths[0]) ? 80 : 90; // Press Start 2P는 80px, 다른 폰트는 90px
+            font_large_ = TTF_OpenFont(font_path, large_size);
+            if (font_large_) {
+                std::cout << "[INFO] Large font loaded for E.P.A: " << font_path << " (size: " << large_size << ")" << std::endl;
+            } else {
+                std::cout << "[WARN] Could not load large font for E.P.A" << std::endl;
+                font_large_ = font_; // 폴백으로 일반 폰트 사용
+            }
         }
     }
 
@@ -313,7 +338,7 @@ void Platform::RenderFileInputUI() {
     SDL_RenderPresent(renderer_);
 }
 
-// 🎮 **Press Start 2P 폰트 기반 레트로 UI**
+// RenderConsoleInputUI() 함수 - 기존 함수 그대로 사용
 void Platform::RenderConsoleInputUI() {
     // 검은색 배경 (아케이드 게임 스타일)
     SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
@@ -325,6 +350,7 @@ void Platform::RenderConsoleInputUI() {
         SDL_Color yellow = {255, 255, 0, 255};
         SDL_Color green = {0, 255, 0, 255};
         SDL_Color gray = {128, 128, 128, 255};
+        SDL_Color cyan = {0, 255, 255, 255};
         
         // === 상단 스코어 보드 ===
         SDL_Rect score_bar = {0, 20, window_width_, 60};
@@ -341,27 +367,17 @@ void Platform::RenderConsoleInputUI() {
         RenderText("2UP", window_width_ - 100, 30, white);
         RenderText("00", window_width_ - 100, 55, white);
         
-        // === E.P.A 로고 (매우 크게) ===
-        // 원본처럼 글로우 효과가 있는 큰 E.P.A
-        for (int dx = -3; dx <= 3; dx++) {
-            for (int dy = -3; dy <= 3; dy++) {
-                if (dx == 0 && dy == 0) continue;
-                SDL_Color glow = {64, 64, 64, 255};
-                RenderTextCentered("E.P.A", 150 + dy, glow);
-                RenderTextCentered("E.P.A", 170 + dy, glow);
-                RenderTextCentered("E.P.A", 190 + dy, glow);
-            }
-        }
-        // 메인 E.P.A 텍스트 (흰색, 굵게)
-        RenderTextCentered("E.P.A", 150, white);
-        RenderTextCentered("E.P.A", 170, white);
-        RenderTextCentered("E.P.A", 190, white);
+        // === 🔥 E.P.A 로고 (큰 폰트 사용!) ===
+        RenderTextCenteredLarge("E.P.A", 150, white);  // 큰 폰트로 렌더링!
         
         // === 입력 프롬프트 ===
         RenderTextCentered("ENTER ROM FILE NAME:", 250, white);
         
-        // === 입력 박스 ===
-        SDL_Rect input_box = {150, 280, window_width_ - 300, 30};
+        // === 🔧 입력 박스 (절반 크기) ===
+        int box_width = 400;  // 고정 크기
+        int box_x = (window_width_ - box_width) / 2;
+        
+        SDL_Rect input_box = {box_x, 280, box_width, 30};
         SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
         SDL_RenderFillRect(renderer_, &input_box);
         SDL_SetRenderDrawColor(renderer_, 255, 255, 255, 255);
@@ -374,24 +390,34 @@ void Platform::RenderConsoleInputUI() {
         
         std::string display_text = current_console_input_;
         if (show_cursor) display_text += "_";
-        RenderText(display_text, 160, 288, green);
+        RenderText(display_text, box_x + 10, 288, green);
+        
+        // === 🎮 게임 목록 ===
+        int game_y = 330;
+        RenderTextCentered("AVAILABLE GAMES:", game_y, cyan);
+        game_y += 35;
+        
+        // 게임 목록을 2줄로 배치
+        RenderText("1. Brick.ch8", 80, game_y, white);
+        RenderText("2. pong.ch8", 280, game_y, white);
+        RenderText("3. pong.ch32", 480, game_y, white);
+        game_y += 30;
+        RenderText("4. sum.ch32", 80, game_y, white);
+        RenderText("5. sum_BOF.ch32", 280, game_y, white);
         
         // === 하단 컨트롤 힌트 ===
-        RenderTextCentered("PRESS ESC TO QUIT", 350, gray);
+        RenderTextCentered("PRESS ESC TO QUIT", window_height_ - 80, gray);
         
         // === 하단 크레딧 ===
         RenderTextCentered("(C) WHITEHAT TEAM EMULPARTY", window_height_ - 50, gray);
         
-        std::cout << "[Platform] Press Start 2P UI rendered - input: " << current_console_input_ << std::endl;
     } else {
         // 폰트 없을 때 대체 UI
-        SDL_Rect placeholder = {150, 280, window_width_ - 300, 30};
+        SDL_Rect placeholder = {200, 280, 400, 30};
         SDL_SetRenderDrawColor(renderer_, 60, 60, 60, 255);
         SDL_RenderFillRect(renderer_, &placeholder);
         SDL_SetRenderDrawColor(renderer_, 255, 255, 255, 255);
         SDL_RenderDrawRect(renderer_, &placeholder);
-        
-        std::cout << "[Platform] Fallback UI rendered (no font)" << std::endl;
     }
 
     SDL_RenderPresent(renderer_);
@@ -410,36 +436,6 @@ void Platform::RenderConsoleOutput() {
         RenderText(line, 10, y, {255, 255, 255, 255});
         y += 20;
     }
-}
-
-void Platform::RenderText(const std::string& text, int x, int y, SDL_Color color) {
-    if (!font_) return;
-
-    SDL_Surface* text_surface = TTF_RenderText_Blended(font_, text.c_str(), color);
-    if (!text_surface) {
-        return;
-    }
-
-    SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer_, text_surface);
-    if (!text_texture) {
-        SDL_FreeSurface(text_surface);
-        return;
-    }
-
-    SDL_Rect dest_rect = {x, y, text_surface->w, text_surface->h};
-    SDL_RenderCopy(renderer_, text_texture, nullptr, &dest_rect);
-
-    SDL_DestroyTexture(text_texture);
-    SDL_FreeSurface(text_surface);
-}
-
-void Platform::RenderTextCentered(const std::string& text, int y, SDL_Color color) {
-    if (!font_) return;
-
-    int text_width, text_height;
-    TTF_SizeText(font_, text.c_str(), &text_width, &text_height);
-    int x = (window_width_ - text_width) / 2;
-    RenderText(text, x, y, color);
 }
 
 void Platform::UpdateFileInput() {
@@ -527,6 +523,68 @@ void Platform::ClearCalculatorInput() {
     calc_input_phase_ = 0;
     calc_input_ready_ = false;
     calc_display_result_.clear();
+}
+
+void Platform::RenderText(const std::string& text, int x, int y, SDL_Color color) {
+    if (!font_) return;
+    
+    SDL_Surface* text_surface = TTF_RenderText_Solid(font_, text.c_str(), color);
+    if (!text_surface) return;
+    
+    SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer_, text_surface);
+    if (!text_texture) {
+        SDL_FreeSurface(text_surface);
+        return;
+    }
+    
+    SDL_Rect dest_rect = {x, y, text_surface->w, text_surface->h};
+    SDL_RenderCopy(renderer_, text_texture, nullptr, &dest_rect);
+    
+    SDL_DestroyTexture(text_texture);
+    SDL_FreeSurface(text_surface);
+}
+
+void Platform::RenderTextCentered(const std::string& text, int y, SDL_Color color) {
+    if (!font_) return;
+    
+    SDL_Surface* text_surface = TTF_RenderText_Solid(font_, text.c_str(), color);
+    if (!text_surface) return;
+    
+    int x = (window_width_ - text_surface->w) / 2;
+    
+    SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer_, text_surface);
+    if (!text_texture) {
+        SDL_FreeSurface(text_surface);
+        return;
+    }
+    
+    SDL_Rect dest_rect = {x, y, text_surface->w, text_surface->h};
+    SDL_RenderCopy(renderer_, text_texture, nullptr, &dest_rect);
+    
+    SDL_DestroyTexture(text_texture);
+    SDL_FreeSurface(text_surface);
+}
+
+void Platform::RenderTextCenteredLarge(const std::string& text, int y, SDL_Color color) {
+    TTF_Font* render_font = font_large_ ? font_large_ : font_;
+    if (!render_font) return;
+    
+    SDL_Surface* text_surface = TTF_RenderText_Solid(render_font, text.c_str(), color);
+    if (!text_surface) return;
+    
+    int x = (window_width_ - text_surface->w) / 2;
+    
+    SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer_, text_surface);
+    if (!text_texture) {
+        SDL_FreeSurface(text_surface);
+        return;
+    }
+    
+    SDL_Rect dest_rect = {x, y, text_surface->w, text_surface->h};
+    SDL_RenderCopy(renderer_, text_texture, nullptr, &dest_rect);
+    
+    SDL_DestroyTexture(text_texture);
+    SDL_FreeSurface(text_surface);
 }
 
 void Platform::UpdateCalculator() {
@@ -829,6 +887,7 @@ void Platform::ClearConsoleInput() {
 
 Platform::~Platform() {
     SDL_StopTextInput();
+    if (font_large_ && font_large_ != font_) TTF_CloseFont(font_large_);
     if (font_) TTF_CloseFont(font_);
     if (texture_) SDL_DestroyTexture(texture_);
     if (renderer_) SDL_DestroyRenderer(renderer_);

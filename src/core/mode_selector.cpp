@@ -201,7 +201,7 @@ int ModeSelector::run_8bit_mode_after_bootrom(Platform& platform) {
 // **SYSCALL에서 호출할 모드 전환 함수**
 bool ModeSelector::load_and_switch_mode(Chip8_32& chip8_32, const std::string& filename) {
     std::string extension = get_file_extension(filename);
-    std::string full_path = "roms/" + filename;
+    std::string full_path = "../roms/" + filename;
     
     std::cout << "[BootROM] Loading: " << full_path << std::endl;
     std::cout << "[BootROM] Extension: " << extension << std::endl;

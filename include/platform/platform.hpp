@@ -16,6 +16,7 @@ private:
     SDL_Renderer* renderer_;
     SDL_Texture* texture_;
     TTF_Font* font_;
+    TTF_Font* font_large_;   // E.P.A용 큰 폰트 (80px)
 
     int window_width_;
     int window_height_;
@@ -55,6 +56,7 @@ private:
     void RenderConsoleInputUI();
     void RenderText(const std::string& text, int x, int y, SDL_Color color);
     void RenderTextCentered(const std::string& text, int y, SDL_Color color);
+    void RenderTextCenteredLarge(const std::string& text, int y, SDL_Color color);
     std::vector<std::string> console_output_;
     
     // 계산기 관련 메서드
