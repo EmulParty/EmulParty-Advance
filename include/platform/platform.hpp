@@ -25,8 +25,7 @@ private:
     enum class InputMode {
         FILE_INPUT,
         GAME,
-        CONSOLE_INPUT,
-        CALCULATOR
+        CONSOLE_INPUT
     };
 
     InputMode current_mode_;
@@ -38,15 +37,6 @@ private:
     bool console_input_ready_;
     bool input_ready_;
 
-    // 계산기 관련 상태
-    std::string calc_num1_;          // 첫 번째 숫자
-    std::string calc_num2_;          // 두 번째 숫자  
-    std::string calc_operation_;     // 연산자 (1=+, 2=-, 3=*, 4=/)
-    std::string calc_result_;        // 계산 결과
-    int calc_input_phase_;           // 0=num1, 1=num2, 2=operation
-    bool calc_input_ready_;          // 계산기 입력 완료 여부
-    std::string calc_display_result_; // 화면 표시용 결과
-
     bool ProcessFileInput(SDL_Event& event);
     bool ProcessGameInput(SDL_Event& event, std::array<uint8_t, 16>& keypad); // 참조로 유지
     bool ProcessConsoleInput(SDL_Event& event);
@@ -56,14 +46,6 @@ private:
     void RenderText(const std::string& text, int x, int y, SDL_Color color);
     void RenderTextCentered(const std::string& text, int y, SDL_Color color);
     std::vector<std::string> console_output_;
-    
-    // 계산기 관련 메서드
-    void RenderCalculatorUI();
-    bool ProcessCalculatorInput(SDL_Event& event);
-    void CalculateResult();
-    std::string GetOperationSymbol(const std::string& op);
-    
-
 
 public:
     Platform(const char* title, int window_width, int window_height, int texture_width, int texture_height);
@@ -89,11 +71,4 @@ public:
     std::string GetConsoleInput();
     void ClearConsoleInput();
     void RequestConsoleInput(const std::string& prompt = "Enter input: ");
-
-    // 계산기 관련 메서드
-    void SwitchToCalculatorMode();
-    bool IsCalculatorInputReady() const;
-    std::string GetCalculatorInput();
-    void ClearCalculatorInput();
-    void UpdateCalculator();
 };

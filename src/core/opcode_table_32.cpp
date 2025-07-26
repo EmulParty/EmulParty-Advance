@@ -945,21 +945,9 @@ namespace OpcodeTable_32 {
             case 0x5: {
                 std::cout << "[syscall] Entering calculator mode" << std::endl;
                 // IOManager → SDLConsoleIO → Platform 경로로 접근
-                auto console_io = chip8_32.get_console_io();
-                if (console_io) {
-                    Platform* platform = console_io->getPlatform();
-                    if (platform) {
-                        platform->SwitchToCalculatorMode();
-                        chip8_32.set_R(16, 0);  // 성공 코드
-                        std::cout << "[Calculator] Calculator mode activated successfully" << std::endl;
-                    } else {
-                        std::cerr << "[Calculator] Platform not available" << std::endl;
-                        chip8_32.set_R(16, 0xFFFFFFFF);  // 실패 코드
-                    }
-                } else {
-                    std::cerr << "[Calculator] Console I/O not available" << std::endl;
-                    chip8_32.set_R(16, 0xFFFFFFFF);  // 실패 코드
-                }
+                // 계산기 기능 제거됨
+                chip8_32.set_R(16, 0xFFFFFFFF);  // 실패 코드
+                std::cerr << "[Calculator] Calculator functionality removed" << std::endl;
                 chip8_32.set_pc(chip8_32.get_pc() + 4);
                 break;
             }

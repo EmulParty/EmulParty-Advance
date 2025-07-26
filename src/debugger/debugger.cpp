@@ -252,15 +252,6 @@ void Debugger32::printState(uint32_t opcode) {
               << "  Delay=" << static_cast<int>(chip8_.get_delay_timer())
               << "  Sound=" << static_cast<int>(chip8_.get_sound_timer()) << "\n\n";
 
-    StackVisualizer visualizer;
-
-    uint8_t first_byte = (opcode >> 24) & 0xFF;
-    if (first_byte == 0x11) {
-        std::string instruction_name = getStackInstructionName(opcode);
-        visualizer.animateStackFrame(chip8_, instruction_name, instruction_name, false);
-    } else {
-        visualizer.drawStackFrame(chip8_, "CURRENT STATE");
-    }
 
     std::cout << std::string(60, '-') << "\n";
 
