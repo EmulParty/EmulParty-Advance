@@ -368,16 +368,16 @@ void Platform::RenderConsoleInputUI() {
         RenderText("00", window_width_ - 100, 55, white);
         
         // === 🔥 E.P.A 로고 (큰 폰트 사용!) ===
-        RenderTextCenteredLarge("E.P.A", 150, white);  // 큰 폰트로 렌더링!
+        RenderTextCenteredLarge("E.P.A", 170, white);  // 조금 아래로 이동 (150 → 170)
         
         // === 입력 프롬프트 ===
-        RenderTextCentered("ENTER ROM FILE NAME:", 250, white);
+        RenderTextCentered("ENTER ROM FILE NAME:", 270, white);
         
         // === 🔧 입력 박스 (절반 크기) ===
         int box_width = 400;  // 고정 크기
         int box_x = (window_width_ - box_width) / 2;
         
-        SDL_Rect input_box = {box_x, 280, box_width, 30};
+        SDL_Rect input_box = {box_x, 300, box_width, 30};
         SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
         SDL_RenderFillRect(renderer_, &input_box);
         SDL_SetRenderDrawColor(renderer_, 255, 255, 255, 255);
@@ -390,20 +390,23 @@ void Platform::RenderConsoleInputUI() {
         
         std::string display_text = current_console_input_;
         if (show_cursor) display_text += "_";
-        RenderText(display_text, box_x + 10, 288, green);
+        RenderText(display_text, box_x + 10, 308, green);
         
         // === 🎮 게임 목록 ===
-        int game_y = 330;
+        int game_y = 350;
         RenderTextCentered("AVAILABLE GAMES:", game_y, cyan);
-        game_y += 35;
+        game_y += 40;
         
-        // 게임 목록을 2줄로 배치
-        RenderText("1. Brick.ch8", 80, game_y, white);
-        RenderText("2. pong.ch8", 280, game_y, white);
-        RenderText("3. pong.ch32", 480, game_y, white);
-        game_y += 30;
-        RenderText("4. sum.ch32", 80, game_y, white);
-        RenderText("5. sum_BOF.ch32", 280, game_y, white);
+        // 게임 목록을 가운데 정렬하고 간격 늘리기
+        RenderTextCentered("1. Brick.ch8", game_y, white);
+        game_y += 35;
+        RenderTextCentered("2. pong.ch8", game_y, white);
+        game_y += 35;
+        RenderTextCentered("3. pong.ch32", game_y, white);
+        game_y += 35;
+        RenderTextCentered("4. sum.ch32", game_y, white);
+        game_y += 35;
+        RenderTextCentered("5. sum_BOF.ch32", game_y, white);
         
         // === 하단 컨트롤 힌트 ===
         RenderTextCentered("PRESS ESC TO QUIT", window_height_ - 80, gray);
