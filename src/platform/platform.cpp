@@ -84,8 +84,9 @@ bool Platform::Initialize() {
         return false;
     }
 
-    // 폰트 로드 시도
+    // 폰트 로드 시도 - Press Start 2P 우선
     const char* font_paths[] = {
+        "./PressStart2P.ttf",  // 다운로드한 Press Start 2P 폰트
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/TTF/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
@@ -96,9 +97,11 @@ bool Platform::Initialize() {
     };
 
     for (int i = 0; font_paths[i] != nullptr; ++i) {
-        font_ = TTF_OpenFont(font_paths[i], 24);
+        // Press Start 2P는 작은 크기로, 다른 폰트는 기본 크기로
+        int font_size = (i == 0) ? 16 : 24;
+        font_ = TTF_OpenFont(font_paths[i], font_size);
         if (font_) {
-            std::cout << "[INFO] Font loaded: " << font_paths[i] << std::endl;
+            std::cout << "[INFO] Font loaded: " << font_paths[i] << " (size: " << font_size << ")" << std::endl;
             break;
         }
     }
@@ -310,55 +313,87 @@ void Platform::RenderFileInputUI() {
     SDL_RenderPresent(renderer_);
 }
 
-// 🔧 **수정된 콘솔 입력 UI**
+// 🎮 **Press Start 2P 폰트 기반 레트로 UI**
 void Platform::RenderConsoleInputUI() {
-    // 전체 화면을 어둡게
-    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer_, 10, 20, 40, 200);
-    SDL_Rect full_screen = {0, 0, window_width_, window_height_};
-    SDL_RenderFillRect(renderer_, &full_screen);
+    // 검은색 배경 (아케이드 게임 스타일)
+    SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
+    SDL_RenderClear(renderer_);
 
     if (font_) {
+        // 레트로 게임 색상 팔레트
         SDL_Color white = {255, 255, 255, 255};
         SDL_Color yellow = {255, 255, 0, 255};
         SDL_Color green = {0, 255, 0, 255};
-
-        // 제목
-        RenderTextCentered("CHIP-8 Console Input", 80, white);
+        SDL_Color gray = {128, 128, 128, 255};
         
-        // 프롬프트
-        RenderText("Enter ROM filename:", 50, 180, yellow);
+        // === 상단 스코어 보드 ===
+        SDL_Rect score_bar = {0, 20, window_width_, 60};
+        SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
+        SDL_RenderFillRect(renderer_, &score_bar);
+        SDL_SetRenderDrawColor(renderer_, 255, 255, 255, 255);
+        SDL_RenderDrawRect(renderer_, &score_bar);
         
-        // 입력 박스
-        SDL_Rect input_box = {50, 210, 540, 40};
-        SDL_SetRenderDrawColor(renderer_, 60, 60, 60, 255);
+        // 스코어 보드 텍스트 (원본과 동일하게)
+        RenderText("1UP", 50, 30, white);
+        RenderText("00", 50, 55, white);
+        RenderTextCentered("HIGH SCORE", 30, white);
+        RenderTextCentered("40000", 55, yellow);
+        RenderText("2UP", window_width_ - 100, 30, white);
+        RenderText("00", window_width_ - 100, 55, white);
+        
+        // === E.P.A 로고 (매우 크게) ===
+        // 원본처럼 글로우 효과가 있는 큰 E.P.A
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dy = -3; dy <= 3; dy++) {
+                if (dx == 0 && dy == 0) continue;
+                SDL_Color glow = {64, 64, 64, 255};
+                RenderTextCentered("E.P.A", 150 + dy, glow);
+                RenderTextCentered("E.P.A", 170 + dy, glow);
+                RenderTextCentered("E.P.A", 190 + dy, glow);
+            }
+        }
+        // 메인 E.P.A 텍스트 (흰색, 굵게)
+        RenderTextCentered("E.P.A", 150, white);
+        RenderTextCentered("E.P.A", 170, white);
+        RenderTextCentered("E.P.A", 190, white);
+        
+        // === 입력 프롬프트 ===
+        RenderTextCentered("ENTER ROM FILE NAME:", 250, white);
+        
+        // === 입력 박스 ===
+        SDL_Rect input_box = {150, 280, window_width_ - 300, 30};
+        SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
         SDL_RenderFillRect(renderer_, &input_box);
-        SDL_SetRenderDrawColor(renderer_, 150, 150, 150, 255);
+        SDL_SetRenderDrawColor(renderer_, 255, 255, 255, 255);
         SDL_RenderDrawRect(renderer_, &input_box);
         
         // 입력 텍스트
-        std::string display_text = current_console_input_ + "_";
-        RenderText(display_text, 55, 220, green);
+        static uint32_t cursor_time = 0;
+        cursor_time += 16;
+        bool show_cursor = (cursor_time / 500) % 2 == 0;
         
-        // 도움말
-        RenderText("Examples: pong.ch8, tetris.ch32", 50, 280, yellow);
-        RenderText("Press ENTER to load ROM", 50, 310, white);
-        RenderText("Press ESC to cancel", 50, 340, white);
+        std::string display_text = current_console_input_;
+        if (show_cursor) display_text += "_";
+        RenderText(display_text, 160, 288, green);
         
-        std::cout << "[Platform] Console UI rendered - input: " << current_console_input_ << std::endl;
+        // === 하단 컨트롤 힌트 ===
+        RenderTextCentered("PRESS ESC TO QUIT", 350, gray);
+        
+        // === 하단 크레딧 ===
+        RenderTextCentered("(C) WHITEHAT TEAM EMULPARTY", window_height_ - 50, gray);
+        
+        std::cout << "[Platform] Press Start 2P UI rendered - input: " << current_console_input_ << std::endl;
     } else {
-        // 폰트 없을 때 기본 박스
-        SDL_Rect placeholder = {50, 210, 540, 40};
+        // 폰트 없을 때 대체 UI
+        SDL_Rect placeholder = {150, 280, window_width_ - 300, 30};
         SDL_SetRenderDrawColor(renderer_, 60, 60, 60, 255);
         SDL_RenderFillRect(renderer_, &placeholder);
-        SDL_SetRenderDrawColor(renderer_, 150, 150, 150, 255);
+        SDL_SetRenderDrawColor(renderer_, 255, 255, 255, 255);
         SDL_RenderDrawRect(renderer_, &placeholder);
         
-        std::cout << "[Platform] Console UI rendered (no font)" << std::endl;
+        std::cout << "[Platform] Fallback UI rendered (no font)" << std::endl;
     }
 
-    // 콘솔 출력도 함께 표시
-    RenderConsoleOutput();
     SDL_RenderPresent(renderer_);
 }
 
