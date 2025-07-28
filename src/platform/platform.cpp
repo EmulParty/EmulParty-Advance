@@ -43,8 +43,8 @@ bool Platform::Initialize() {
     const char* driver = SDL_GetCurrentVideoDriver();
     std::cout << "[INFO] SDL Video Driver: " << (driver ? driver : "NULL") << std::endl;
 
-    // 창 생성
-    window_ = SDL_CreateWindow("CHIP-8 Emulator", 
+    // 창 생성 (제목 업데이트)
+    window_ = SDL_CreateWindow("EmulParty Advance Emulator (v1.0.0.)", 
                               SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
                               window_width_, window_height_, 
                               SDL_WINDOW_SHOWN);
@@ -453,7 +453,8 @@ void Platform::UpdateConsoleInput() {
 void Platform::Update(const std::array<uint8_t, VIDEO_WIDTH * VIDEO_HEIGHT>& video, int /* pitch */) {
     // 디버깅: 현재 모드 출력
     static int frame_count = 0;
-    if (frame_count % 60 == 0) {  // 1초마다 출력
+    // 로그 빈도: 약 10초마다 한 번 (60FPS 기준)
+    if (frame_count % 600 == 0) {
         std::cout << "[Platform] Current mode: " << static_cast<int>(current_mode_) << std::endl;
     }
     frame_count++;

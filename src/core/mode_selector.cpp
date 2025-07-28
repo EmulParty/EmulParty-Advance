@@ -79,7 +79,11 @@ int ModeSelector::run_unified_bootrom_mode() {
             }
         }
         
-        chip8_32.cycle();
+        static int frame_counter_32 = 0;
+        if (frame_counter_32 % 10 == 0) {  // 60fps 기준 6cycle/sec
+            chip8_32.cycle();
+        }
+        frame_counter_32++;
         
         if (g_switched_to_8bit) {
             std::cout << "[MODE SWITCH] Transitioning from 32-bit BootROM to 8-bit CHIP-8..." << std::endl;
@@ -169,7 +173,11 @@ int ModeSelector::run_8bit_mode_after_bootrom(Platform& platform) {
             }
         }
         
-        chip8.cycle();
+        static int frame_counter_8 = 0;
+        if (frame_counter_8 % 10 == 0) {
+            chip8.cycle();
+        }
+        frame_counter_8++;
         
         // 타이머 업데이트
         static uint32_t last_timer_update = 0;

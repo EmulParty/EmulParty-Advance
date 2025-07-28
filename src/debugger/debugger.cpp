@@ -5,6 +5,13 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <atomic>
+
+namespace {
+    // 디버거가 커서 이동·화면 덮어쓰기를 이용하는 동적 UI를 사용할지 여부.
+    // false 로 두면 매 명령마다 한 줄씩 로그를 쌓는 연속 출력 모드가 된다.
+    constexpr bool USE_DYNAMIC_DEBUG_UI = false;
+}
 
 namespace chip8emu {
 
@@ -61,6 +68,45 @@ std::string Debugger8::toHex32(uint32_t value) const {
 
 void Debugger8::printState(uint32_t opcode) {
     if (!enabled_) return;
+
+    // 간단 로그 모드: 화면 리프레시 대신 한 줄씩 누적 출력
+    if (!USE_DYNAMIC_DEBUG_UI) {
+        uint16_t pc = chip8_.get_pc();
+
+        std::ostringstream oss;
+        uint16_t op16 = static_cast<uint16_t>(opcode & 0xFFFF);
+        oss << "[8] PC=" << toHex16(pc)
+            << " OPC=" << toHex16(op16) << ' ' << std::left << std::setw(6) << disassemble(opcode)
+            << " I=" << toHex16(chip8_.get_I())
+            << " V0=" << toHex8(chip8_.get_V(0))
+            << " V1=" << toHex8(chip8_.get_V(1))
+            << " V2=" << toHex8(chip8_.get_V(2))
+            << " V3=" << toHex8(chip8_.get_V(3))
+            << " VF=" << toHex8(chip8_.get_V(15));
+        std::cout << oss.str() << std::endl;
+
+        // 8비트 시스템에서도 동일 메모리 범위(0x0620~0x062F)를 출력
+        {
+            std::ostringstream memLine;
+            memLine << "[MEM][EFF0-EFFF] ";
+            for (int w = 0; w < 4; ++w) {
+                uint16_t base = 0x0620 + w * 4;
+                uint32_t val = (chip8_.get_memory(base) << 24) |
+                               (chip8_.get_memory(base + 1) << 16) |
+                               (chip8_.get_memory(base + 2) << 8) |
+                               chip8_.get_memory(base + 3);
+                memLine << std::uppercase << std::hex << std::setw(8) << std::setfill('0') << val;
+                if (w != 3) memLine << ' ';
+            }
+            std::cout << memLine.str() << std::endl;
+        }
+
+        // 스텝 모드라면 입력을 계속 지원한다.
+        if (step_mode_) {
+            handleDebugInput();
+        }
+        return; // 동적 UI 코드 건너뜀
+    }
 
     // 브레이크포인트 체크
     uint16_t pc = chip8_.get_pc();
@@ -131,7 +177,8 @@ void Debugger8::printState(uint32_t opcode) {
     std::cout << "\033[9;33H" << std::setw(8) << std::setfill('0') << static_cast<int>(chip8_.get_delay_timer());  // Delay
     std::cout << "\033[9;49H" << std::setw(8) << std::setfill('0') << static_cast<int>(chip8_.get_sound_timer());  // Sound
     
-    std::cout << "\033[u";  // 저장된 위치로 복원
+    // 저장된 위치로 복원 후 줄바꿈 및 fill 문자 초기화로 다른 출력에 영향이 없도록 한다.
+    std::cout << "\033[u" << std::setfill(' ') << '\n';
     std::cout << std::flush;
 
     // 스텝 모드에서 사용자 입력 대기
@@ -260,6 +307,64 @@ std::string Debugger32::toHex32(uint32_t value) const {
 void Debugger32::printState(uint32_t opcode) {
     if (!enabled_) return;
 
+    // 간단 로그 모드: 화면 리프레시 대신 한 줄씩 누적 출력
+    if (!USE_DYNAMIC_DEBUG_UI) {
+        uint32_t pc = chip8_.get_pc();
+
+        static uint32_t last_logged_pc32 = 0xFFFFFFFF;
+        if (pc == last_logged_pc32) {
+            // 같은 PC에서 반복 호출되면 중복 로그 생략
+            if (step_mode_) {
+                handleDebugInput();
+            }
+            return;
+        }
+        last_logged_pc32 = pc;
+
+        // 구분선
+        std::cout << "---------------------------------------------------------------------" << std::endl;
+
+        // 헤더 라인 : PC / OP / I
+        std::ostringstream hdr;
+        hdr << "[32] PC=" << toHex16(static_cast<uint16_t>(pc))
+            << " OPC=" << toHex32(opcode) << ' ' << disassemble(opcode)
+            << " I=" << toHex32(chip8_.get_I());
+        std::cout << hdr.str() << std::endl;
+
+        // 레지스터 8개씩 4줄 출력
+        for (int row = 0; row < 4; ++row) {
+            std::ostringstream line;
+            for (int col = 0; col < 8; ++col) {
+                int idx = row * 8 + col;
+                line << "R" << std::uppercase << std::setw(2) << std::setfill('0') << std::hex << idx
+                     << "=" << toHex32(chip8_.get_R(idx));
+                if (col != 7) line << " ";
+            }
+            std::cout << line.str() << std::endl;
+        }
+
+        // 메모리 0x0620~0x062F 16바이트를 4바이트씩 묶어 출력
+        std::ostringstream memLine;
+        memLine << "[MEM][0620-062F] ";
+        for (int word = 0; word < 4; ++word) {
+            uint32_t base = 0x0620 + word * 4;
+            uint32_t value = (chip8_.get_memory(base) << 24) |
+                            (chip8_.get_memory(base + 1) << 16) |
+                            (chip8_.get_memory(base + 2) << 8) |
+                            chip8_.get_memory(base + 3);
+            memLine << std::uppercase << std::hex << std::setw(8) << std::setfill('0') << value;
+            if (word != 3) memLine << ' ';
+        }
+        std::cout << memLine.str() << std::endl;
+
+        std::cout << std::dec;  // 형식 초기화
+
+        if (step_mode_) {
+            handleDebugInput();
+        }
+        return; // 동적 UI 코드 건너뜀
+    }
+
     // 브레이크포인트 체크
     uint32_t pc = chip8_.get_pc();
     if (hasBreakpoint(static_cast<uint16_t>(pc))) {
@@ -337,7 +442,8 @@ void Debugger32::printState(uint32_t opcode) {
     std::cout << "\033[14;37H" << std::setw(8) << std::setfill('0') << static_cast<int>(chip8_.get_delay_timer());  // Delay
     std::cout << "\033[14;53H" << std::setw(8) << std::setfill('0') << static_cast<int>(chip8_.get_sound_timer());  // Sound
     
-    std::cout << "\033[u";  // 저장된 위치로 복원
+    // 저장된 위치로 복원 후 줄바꿈 및 fill 문자 초기화로 다른 출력에 영향이 없도록 한다.
+    std::cout << "\033[u" << std::setfill(' ') << '\n';
     std::cout << std::flush;
 
     // 스텝 모드에서 사용자 입력 대기

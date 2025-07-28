@@ -39,14 +39,14 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
 pkg_check_modules(SDL2_TTF REQUIRED SDL2_ttf)
 
-# include 경로 추가
-include_directories(${SDL2_INCLUDE_DIRS} ${SDL2_TTF_INCLUDE_DIRS})
-
 # 실행 파일 생성
 add_executable(chip8_dual ${SRC_FILES})
+# 인클루드 디렉터리 (add_executable 이후에 위치해야 함)
+target_include_directories(chip8_dual PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_TTF_INCLUDE_DIRS})
 
 # 라이브러리 링크
 target_link_libraries(chip8_dual ${SDL2_LIBRARIES} ${SDL2_TTF_LIBRARIES})
 
 # 🔧 추가: 컴파일 옵션
-target_compile_options(chip8_dual PRIVATE -Wall -Wextra)
+# 컴파일 플래그
+target_compile_options(chip8_dual PRIVATE -Wall -Wextra ${SDL2_CFLAGS_OTHER} ${SDL2_TTF_CFLAGS_OTHER})
