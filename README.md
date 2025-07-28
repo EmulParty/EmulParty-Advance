@@ -2,9 +2,7 @@
 
 **32-bit 확장 CHIP-8 에뮬레이터 + x86-64 스타일 스택 프레임 + 실시간 디버거**
 
-> 창 제목 : `EmulParty Advance Emulator (v1.0.0.)` ( `platform.cpp` 의 `SDL_CreateWindow()` 에서 설정 )
-
-** 핵심 성과**: 세계 최초로 CHIP-8에 완전한 x86-64 스타일 스택 프레임을 구현한 에뮬레이터!
+** 핵심 성과**: 보안 취약점 교육 목적으로 활용 가능한 EmulParty Advance(EPA) 기반 에뮬레이터 & ROM
 
 ---
 
@@ -12,10 +10,9 @@
 
 | 변경 | 세부 내용 | 관련 파일 |
 |------|-----------|-----------|
-| 창 제목 | "CHIP-8 Emulator" → **"EmulParty Advance Emulator (v1.0.0.)"** | `src/platform/platform.cpp` |
 | 플랫폼 로그 | `[Platform] Current mode:` 출력 주기 1초 → **10초** | `src/platform/platform.cpp` |
 | 실행 속도 | CPU cycle 를 **~6 op/s** 로 제한 | `src/core/mode_selector.cpp` |
-| 디버거 | 연속 로그 모드, 레지스터/메모리 요약, 중복 PC 필터, 0x0620–0x062F 덤프 | `src/debugger/debugger.cpp` |
+| 디버거 | 연속 로그 모드, 레지스터/메모리 요약, 중복 PC 필터 | `src/debugger/debugger.cpp` |
 
 ---
 
