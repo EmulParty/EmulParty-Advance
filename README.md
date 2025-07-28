@@ -1,11 +1,21 @@
-# CHIP-8 Dual Mode Emulator
-**세상에 없던 32비트 확장 CHIP-8 에뮬레이터 + x86-64 기반 스택 프레임 시스템**
+# EmulParty Advance Emulator (v1.0.0)
 
-## 📋 프로젝트 개요
+**32-bit 확장 CHIP-8 에뮬레이터 + x86-64 스타일 스택 프레임 + 실시간 디버거**
 
-이 프로젝트는 전통적인 8비트 CHIP-8 에뮬레이터를 32비트로 확장하고, **x86-64 기반 스택 프레임 관리**와 **고급 보안 기능**을 추가한 교육용 에뮬레이터입니다. 
+> 창 제목 : `EmulParty Advance Emulator (v1.0.0.)` ( `platform.cpp` 의 `SDL_CreateWindow()` 에서 설정 )
 
 ** 핵심 성과**: 세계 최초로 CHIP-8에 완전한 x86-64 스타일 스택 프레임을 구현한 에뮬레이터!
+
+---
+
+### 최근 변경 사항(1.0.0)
+
+| 변경 | 세부 내용 | 관련 파일 |
+|------|-----------|-----------|
+| 창 제목 | "CHIP-8 Emulator" → **"EmulParty Advance Emulator (v1.0.0.)"** | `src/platform/platform.cpp` |
+| 플랫폼 로그 | `[Platform] Current mode:` 출력 주기 1초 → **10초** | `src/platform/platform.cpp` |
+| 실행 속도 | CPU cycle 를 **~6 op/s** 로 제한 | `src/core/mode_selector.cpp` |
+| 디버거 | 연속 로그 모드, 레지스터/메모리 요약, 중복 PC 필터, 0x0620–0x062F 덤프 | `src/debugger/debugger.cpp` |
 
 ---
 
@@ -348,7 +358,7 @@ Enter ROM filename: sum.ch32
 - ✅ **완전한 함수 호출/반환 메커니즘**
 - ✅ **스택 프레임 전용 명령어 세트 (20개)**
 - ✅ **스택 오버플로우/언더플로우 실시간 감지**
-- ✅ **스택 프레임 디버거 (sf, st, mem 명령어)**
+- ✅ **스택 프레임 디버거 (sf, st 명령어)**
 - ✅ **sum.ch32 데모 ROM 작성**
 
 ### 🚧 진행 중
