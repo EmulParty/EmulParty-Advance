@@ -17,7 +17,7 @@ public:
     explicit Debugger8(Chip8& chip8)
         : chip8_(chip8), enabled_(false), step_mode_(false) {}
 
-    void enable(bool on = true) { enabled_ = on; }
+    void enable(bool on = true);
     bool isEnabled() const { return enabled_; }
     void setStepMode(bool on = true) { step_mode_ = on; }
     bool isStepMode() const { return step_mode_; }
@@ -26,6 +26,7 @@ public:
     void removeBreakpoint(uint16_t address) { breakpoints_.erase(address); }
     bool hasBreakpoint(uint16_t address) const { return breakpoints_.count(address) > 0; }
     void clearBreakpoints() { breakpoints_.clear(); }
+    void resetDebugState();
 
     void printState(uint32_t opcode);
     std::string disassemble(uint32_t opcode);
@@ -36,6 +37,7 @@ private:
     bool enabled_;
     bool step_mode_;
     std::set<uint16_t> breakpoints_;
+    static bool first_debug_print_;
 
     std::string toHex8(uint8_t value) const;
     std::string toHex16(uint16_t value) const;
@@ -112,6 +114,11 @@ public:
      * @brief 모든 셀 초기화
      */
     void clearCells();
+    
+    /**
+     * @brief 디버거 시작 시 모든 상태 초기화
+     */
+    void resetVisualizerState();
 
 private:
     std::vector<StackCell> stack_cells_;  // 🔧 수정: 이제 제대로 선언됨
@@ -143,7 +150,15 @@ private:
     std::string getPointerInfo(uint32_t addr, uint32_t rbp, uint32_t rsp);
     
     /**
-     * @brief 🔥 고급 포인터 정보 출력
+     * @brief 고정된 스택 상태 정보 출력
+     * @param chip8_32 32비트 CHIP-8 시스템 참조
+     * @param rbp RBP 값
+     * @param rsp RSP 값
+     */
+    void drawFixedStackStatus(const Chip8_32& chip8_32, uint32_t rbp, uint32_t rsp);
+    
+    /**
+     * @brief 고급 포인터 정보 출력 (사용 안 함)
      * @param chip8_32 32비트 CHIP-8 시스템 참조
      * @param rbp RBP 값
      * @param rsp RSP 값
@@ -176,7 +191,12 @@ private:
     void clearScreen();
     void waitForUser(const std::string& message = "Press ENTER to continue...");
     void showInstructionInfo(const std::string& instruction, const std::string& description);
-    void simulateFunctionCall(Chip8_32& chip8_32);  // 🔧 추가
+    
+    /**
+     * @brief 📝 사용자 입력 관련 함수들
+     */
+    std::pair<uint32_t, uint32_t> getUserInput();  // 세 자리 수 두 개 입력받기
+    void simulateX86AddFunction(Chip8_32& chip8_32, uint32_t num1, uint32_t num2);  // x86-64 스타일 덧셈
     
     /**
      * @brief 셀 타입에 따른 이모지 반환
@@ -199,7 +219,7 @@ public:
     explicit Debugger32(Chip8_32& chip8)
         : chip8_(chip8), enabled_(false), step_mode_(false) {}
 
-    void enable(bool on = true) { enabled_ = on; }
+    void enable(bool on = true);
     bool isEnabled() const { return enabled_; }
     void setStepMode(bool on = true) { step_mode_ = on; }
     bool isStepMode() const { return step_mode_; }
@@ -208,6 +228,7 @@ public:
     void removeBreakpoint(uint16_t address) { breakpoints_.erase(address); }
     bool hasBreakpoint(uint16_t address) const { return breakpoints_.count(address) > 0; }
     void clearBreakpoints() { breakpoints_.clear(); }
+    void resetDebugState();
 
     void printState(uint32_t opcode);
     std::string disassemble(uint32_t opcode);
@@ -224,6 +245,7 @@ private:
     bool enabled_;
     bool step_mode_;
     std::set<uint16_t> breakpoints_;
+    static bool first_debug_print_;
 
     std::string toHex8(uint8_t value) const;
     std::string toHex16(uint16_t value) const;

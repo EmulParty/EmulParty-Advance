@@ -23,9 +23,18 @@ int main(int argc, char* argv[]) {
         std::string arg = argv[i];
         if (arg == "--debug" || arg == "-d") {
             debug_mode = true;
+        } else if (arg == "--mode") {
+            // --mode 옵션은 호환성을 위해 인식하지만 무시
+            // (항상 32비트 BootROM으로 시작하여 자동 모드 선택)
+            if (i + 1 < argc) {
+                i++; // 다음 인수 건너뛰기
+            }
         } else if (arg == "--help" || arg == "-h") {
-            std::cout << "Usage: " << argv[0] << " [--debug]\n";
-            std::cout << "BootROM will handle file selection automatically.\n";
+            std::cout << "Usage: " << argv[0] << " [--debug] [--mode 32]\n";
+            std::cout << "  --debug, -d     Enable debug mode with step-by-step execution\n";
+            std::cout << "  --mode 32       Legacy option (always starts in 32-bit mode)\n";
+            std::cout << "\nBootROM will handle file selection and mode switching automatically.\n";
+            std::cout << "Use 'sf' command in debug mode for stack frame visualization.\n";
             return 0;
         }
     }
@@ -33,14 +42,14 @@ int main(int argc, char* argv[]) {
     print_banner();
     
     if (debug_mode) {
-        std::cout << "🐛 Debug mode enabled\n";
+        std::cout << "Debug mode enabled\n";
     }
 
     ModeSelector::set_debug_mode(debug_mode);
     
-    std::cout << "🚀 Starting BootROM-driven emulator...\n";
+    std::cout << "Starting BootROM-driven emulator...\n";
     int result = ModeSelector::select_and_run();
 
-    std::cout << "\n✨ Emulator terminated " << (result == 0 ? "successfully" : "with errors") << "\n";
+    std::cout << "\nEmulator terminated " << (result == 0 ? "successfully" : "with errors") << "\n";
     return result;
 }

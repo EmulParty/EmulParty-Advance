@@ -45,7 +45,7 @@ int ModeSelector::run_unified_bootrom_mode() {
     if (g_debug_mode) {
         debugger32.enable(true);
         debugger32.setStepMode(true);
-        std::cout << "🐛 Debug mode enabled\n";
+        std::cout << "Debug mode enabled\n";
     }
     
     Platform platform("NeoCHIP-8 Unified System", 
@@ -131,7 +131,7 @@ int ModeSelector::run_8bit_mode_after_bootrom(Platform& platform) {
     if (g_debug_mode) {
         debugger8.enable(true);
         debugger8.setStepMode(true);
-        std::cout << "🐛 Debug mode enabled for 8-bit CHIP-8\n";
+        std::cout << "Debug mode enabled for 8-bit CHIP-8\n";
     }
     
     // ROM 데이터 로드
