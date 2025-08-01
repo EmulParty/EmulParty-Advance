@@ -15,9 +15,9 @@ bool IOManager::registerDevice(uint8_t fd, std::shared_ptr<IODevice> device) {
 }
 
 bool IOManager::unregisterDevice(uint8_t fd) {
-    auto it = devices_.find(fd);  // 🔧 수정: devices_find → devices_.find
+    auto it = devices_.find(fd);  // 수정: devices_find → devices_.find
     if (it == devices_.end()) {
-        std::cerr << "[IOManager] No device found for fd=" << static_cast<int>(fd) << std::endl;  // 🔧 수정: std:cerr >> → std::cerr <<
+        std::cerr << "[IOManager] No device found for fd=" << static_cast<int>(fd) << std::endl;  // 수정: std:cerr >> → std::cerr <<
         return false;
     }
 

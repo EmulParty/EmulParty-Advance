@@ -139,4 +139,10 @@ namespace StackOpcodes {
      */
     bool pop_stack(Chip8_32& chip8_32, uint32_t& value);
     
+    /**
+     * @brief 디버그 출력 설정
+     * @param enable true면 디버그 출력 활성화
+     */
+    void set_debug(bool enable);
+    
 } // namespace StackOpcodes

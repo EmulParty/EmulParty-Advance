@@ -5,12 +5,13 @@
 #include <iomanip>
 
 namespace StackOpcodes {
-#define DEBUG
-#ifdef DEBUG
-#define LOG_DEBUG(x) std::cout << x << std::endl
-#else
-#define LOG_DEBUG(x)
-#endif
+// 디버그 출력 제어
+static bool debug_enabled = false;
+#define LOG_DEBUG(x) if (debug_enabled) { std::cout << "[STACK] " << x << std::endl; }
+
+void set_debug(bool enable) {
+    debug_enabled = enable;
+}
 
 // ===========================================
 // 헬퍼 함수들
@@ -32,7 +33,7 @@ bool push_stack(Chip8_32& chip8_32, uint32_t value) {
     chip8_32.set_memory(rsp + 3, value & 0xFF);
     chip8_32.set_R(StackFrame::RSP_INDEX, rsp);
     
-    LOG_DEBUG("[STACK] PUSH 0x" << std::hex << value << " at RSP=0x" << rsp << std::dec);
+    LOG_DEBUG("PUSH 0x" << std::hex << value << " at RSP=0x" << rsp << std::dec);
     return true;
 }
 
@@ -53,14 +54,14 @@ bool pop_stack(Chip8_32& chip8_32, uint32_t& value) {
     rsp += 4;
     chip8_32.set_R(StackFrame::RSP_INDEX, rsp);
     
-    LOG_DEBUG("[STACK] POP 0x" << std::hex << value << " from RSP=0x" << (rsp-4) << std::dec);
+    LOG_DEBUG("POP 0x" << std::hex << value << " from RSP=0x" << (rsp-4) << std::dec);
     return true;
 }
 
 void extract_register_and_offset(uint32_t opcode, uint8_t& reg_index, uint8_t& offset) {
     reg_index = (opcode & 0x0000FF00) >> 8; // 비트 15-8: 레지스터 인덱스
     offset = opcode & 0x000000FF;           // 비트 7-0: 오프셋
-    LOG_DEBUG("[STACK DEBUG] opcode=0x" << std::hex << opcode 
+    LOG_DEBUG("opcode=0x" << std::hex << opcode 
               << " → reg_idx=" << std::dec << (int)reg_index
               << " offset=" << (int)offset);
 }
@@ -70,7 +71,7 @@ void extract_register_and_offset(uint32_t opcode, uint8_t& reg_index, uint8_t& o
 // ===========================================
 
 void OP_PUSH_RBP(Chip8_32& chip8_32, uint32_t opcode) {
-    LOG_DEBUG("[OPCODE] PUSH RBP (0x" << std::hex << opcode << ")" << std::dec);
+    LOG_DEBUG("PUSH RBP");
     uint32_t rbp = chip8_32.get_R(StackFrame::RBP_INDEX);
     if (push_stack(chip8_32, rbp)) {
         chip8_32.set_pc(chip8_32.get_pc() + 4);
@@ -81,8 +82,7 @@ void OP_PUSH_RBP(Chip8_32& chip8_32, uint32_t opcode) {
 
 void OP_PUSH_RX(Chip8_32& chip8_32, uint32_t opcode) {
     uint8_t reg_index = (opcode & 0x0000FF00) >> 8;
-    LOG_DEBUG("[OPCODE] PUSH R" << static_cast<int>(reg_index) 
-              << " (0x" << std::hex << opcode << ")" << std::dec);
+    LOG_DEBUG("PUSH R" << static_cast<int>(reg_index));
     
     if (reg_index >= 32) {
         std::cerr << "[ERROR] Invalid register index: " << static_cast<int>(reg_index) << std::endl;

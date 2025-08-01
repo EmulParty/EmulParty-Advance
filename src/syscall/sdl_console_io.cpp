@@ -35,19 +35,19 @@ size_t SDLConsoleIO::read(char* buffer, size_t size) {
             return bytes_to_copy;
         }
 
-        // 🔧 **핵심 수정: 콘솔 모드로 전환 (스택 프레임 작업용)**
+        // **핵심 수정: 콘솔 모드로 전환 (스택 프레임 작업용)**
         std::cout << "[SDLConsoleIO] Switching to console mode for stack frame input..." << std::endl;
         platform_->SwitchToConsoleMode();
 
 
-        // 🔧 **수정: 콘솔 입력이 들어올 때까지 SDL 이벤트 처리 루프**
+        // **수정: 콘솔 입력이 들어올 때까지 SDL 이벤트 처리 루프**
         while (!platform_->IsConsoleInputReady()) {
             platform_->ProcessEvents();
             platform_->UpdateConsoleInput();
             SDL_Delay(16); // 약 60FPS 대기
         }
 
-        // 🔧 **수정: 콘솔 입력 가져오기**
+        // **수정: 콘솔 입력 가져오기**
         std::string input = platform_->GetConsoleInput();
         if (!input.empty()) {
             std::cout << "[SDLConsoleIO] Got console input: " << input << std::endl;
@@ -56,7 +56,7 @@ size_t SDLConsoleIO::read(char* buffer, size_t size) {
             std::memcpy(buffer, input.c_str(), bytes_to_copy);
             buffer[bytes_to_copy] = '\0';
 
-            // 🎯 입력 처리 후 게임 모드 복귀
+            // 입력 처리 후 게임 모드 복귀
             platform_->SwitchToGameMode();
             platform_->ProcessEvents();     // 모드 전환 적용 보장
             SDL_Delay(16);                  // 한 프레임 딜레이로 UI 전환 완료

@@ -1,7 +1,7 @@
 #include "debugger.hpp"
 #include "chip8.hpp"
 #include "chip8_32.hpp"
-#include "stack_frame.hpp"  // 🔧 추가: StackFrame 네임스페이스 사용을 위해
+#include "stack_frame.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -38,25 +38,12 @@ std::string toHex32(uint32_t value) {
 
 void Debugger8::enable(bool on) {
     if (on && !enabled_) {
-        // 디버거 시작 시 상태 초기화
         step_mode_ = false;
         clearBreakpoints();
-        first_debug_print_ = true;  // UI 다시 출력하도록 리셋
+        first_debug_print_ = true;
         std::cout << "[INFO] 8-bit debugger initialized" << std::endl;
     }
     enabled_ = on;
-}
-
-std::string Debugger8::toHex8(uint8_t value) const {
-    return ::chip8emu::toHex8(value);
-}
-
-std::string Debugger8::toHex16(uint16_t value) const {
-    return ::chip8emu::toHex16(value);
-}
-
-std::string Debugger8::toHex32(uint32_t value) const {
-    return ::chip8emu::toHex32(value);
 }
 
 void Debugger8::printState(uint32_t opcode) {
@@ -76,60 +63,82 @@ void Debugger8::printState(uint32_t opcode) {
         std::cout << "============================================================\n";
         
         // PC, Opcode 줄
-        std::cout << "PC = [    ]  Opcode = [        ]  -> \n";
+        std::cout << "PC=[    ]  Opcode=[        ]  \n";
         
         // V0~V7
-        std::cout << "V0-V7:\n";
+        std::cout << "V0-V7: ";
         for (int i = 0; i < 8; ++i) {
-            std::cout << "V" << std::hex << i << " = [  ]  ";
-            if ((i + 1) % 4 == 0) std::cout << "\n";
+            std::cout << "V" << std::hex << i
+                      << "=[  ]  ";
         }
-        
+        std::cout << "\n";
+
         // V8~VF
-        std::cout << "V8-VF:\n";
+        std::cout << "V8-VF: ";
         for (int i = 8; i < 16; ++i) {
-            std::cout << "V" << std::hex << i << " = [  ]  ";
-            if ((i + 1) % 4 == 0 || i == 15) std::cout << "\n";
+            std::cout << "V" << std::hex << i
+                      << "=[  ]  ";
         }
+        std::cout << "\n";
+
+        // I, SP, 타이머
+        std::cout << "I=[    ]  SP=[  ]  Delay=[  ]  Sound=[  ]\n";
         
-        // Special Registers
-        std::cout << "Special Registers:\n";
-        std::cout << "I = [    ]  SP = [        ]  Delay = [        ]  Sound = [        ]\n";
-        std::cout << "------------------------------------------------------------\n";
+        // 스택 내용 (16개)
+        std::cout << "Stack: ";
+        for (int i = 0; i < 16; ++i) {
+            std::cout << "[    ] ";
+        }
+        std::cout << "\n--------------------------------------------------\n";
         
         first_debug_print_ = false;
     }
 
+    // 내부 상태 가져오기
+    uint16_t I     = chip8_.get_I();
+    uint8_t  sp    = chip8_.get_sp();
+    const uint8_t* V     = chip8_.getV8();
+    const uint16_t* stack = chip8_.getStack16();
+    uint8_t  delay = chip8_.get_delay_timer();
+    uint8_t  sound = chip8_.get_sound_timer();
+
     // 값들만 업데이트 (커서 위치 이동으로)
-    // PC 값 업데이트 (3번째 줄, 6번째 위치)
     std::cout << "\033[s";  // 현재 위치 저장
-    std::cout << "\033[3;6H" << toHex16(pc);  // PC 위치로 이동하여 값 출력
     
-    // Opcode 값 업데이트 (3번째 줄, 19번째 위치)
-    std::cout << "\033[3;19H" << toHex32(opcode);
+    // PC 값 업데이트 (4번째 줄, 4번째 위치)
+    std::cout << "\033[4;4H" << ::chip8emu::toHex16(pc);
     
-    // 명령어 이름 업데이트 (3번째 줄, 38번째 위치)
-    std::cout << "\033[3;38H" << std::left << std::setw(10) << disassemble(opcode);
+    // Opcode 값 업데이트 (4번째 줄, 19번째 위치)
+    std::cout << "\033[4;19H" << ::chip8emu::toHex32(opcode);
     
-    // V0~V7 값들 업데이트
+    // V0~V7 값들 업데이트 (5번째 줄)
     for (int i = 0; i < 8; ++i) {
-        int line = 5 + (i / 4);  // 5번째 줄부터 시작
-        int col = 6 + (i % 4) * 9;  // 각 레지스터당 9칸 간격
-        std::cout << "\033[" << line << ";" << col << "H" << toHex8(chip8_.get_V(i));
+        int col = 10 + i * 7;  // V0부터 7칸 간격
+        std::cout << "\033[5;" << col << "H" << ::chip8emu::toHex8(V[i]);
     }
     
-    // V8~VF 값들 업데이트
+    // V8~VF 값들 업데이트 (6번째 줄)
     for (int i = 8; i < 16; ++i) {
-        int line = 7 + ((i - 8) / 4);  // 7번째 줄부터 시작
-        int col = 6 + ((i - 8) % 4) * 9;
-        std::cout << "\033[" << line << ";" << col << "H" << toHex8(chip8_.get_V(i));
+        int col = 10 + (i - 8) * 7;  // V8부터 7칸 간격
+        std::cout << "\033[6;" << col << "H" << ::chip8emu::toHex8(V[i]);
     }
     
-    // Special Registers 업데이트 (9번째 줄)
-    std::cout << "\033[9;5H" << toHex16(chip8_.get_I());  // I
-    std::cout << "\033[9;17H" << std::setw(8) << std::setfill('0') << static_cast<int>(chip8_.get_sp());  // SP
-    std::cout << "\033[9;33H" << std::setw(8) << std::setfill('0') << static_cast<int>(chip8_.get_delay_timer());  // Delay
-    std::cout << "\033[9;49H" << std::setw(8) << std::setfill('0') << static_cast<int>(chip8_.get_sound_timer());  // Sound
+    // I, SP, 타이머 업데이트 (7번째 줄)
+    std::cout << "\033[7;3H" << ::chip8emu::toHex16(I);      // I
+    std::cout << "\033[7;15H" << ::chip8emu::toHex8(sp);     // SP
+    std::cout << "\033[7;25H" << ::chip8emu::toHex8(delay);  // Delay
+    std::cout << "\033[7;36H" << ::chip8emu::toHex8(sound);  // Sound
+    
+    // 스택 값들 업데이트 (8번째 줄)
+    for (int i = 0; i < 16; ++i) {
+        int col = 8 + i * 7;  // 7칸 간격
+        std::cout << "\033[8;" << col << "H" << ::chip8emu::toHex16(stack[i]);
+        
+        // SP 표시
+        if (i == sp) {
+            std::cout << "\033[8;" << (col + 4) << "H<";
+        }
+    }
     
     std::cout << "\033[u";  // 저장된 위치로 복원
     std::cout << std::flush;
@@ -236,25 +245,12 @@ void Debugger8::resetDebugState() {
 
 void Debugger32::enable(bool on) {
     if (on && !enabled_) {
-        // 디버거 시작 시 상태 초기화
         step_mode_ = false;
         clearBreakpoints();
-        first_debug_print_ = true;  // UI 다시 출력하도록 리셋
+        first_debug_print_ = true;
         std::cout << "[INFO] 32-bit debugger initialized" << std::endl;
     }
     enabled_ = on;
-}
-
-std::string Debugger32::toHex8(uint8_t value) const {
-    return ::chip8emu::toHex8(value);
-}
-
-std::string Debugger32::toHex16(uint16_t value) const {
-    return ::chip8emu::toHex16(value);
-}
-
-std::string Debugger32::toHex32(uint32_t value) const {
-    return ::chip8emu::toHex32(value);
 }
 
 void Debugger32::printState(uint32_t opcode) {
@@ -263,7 +259,7 @@ void Debugger32::printState(uint32_t opcode) {
     // 브레이크포인트 체크
     uint32_t pc = chip8_.get_pc();
     if (hasBreakpoint(static_cast<uint16_t>(pc))) {
-        std::cout << "\nBREAKPOINT HIT at " << toHex32(pc) << "\n";
+        std::cout << "\nBREAKPOINT HIT at " << ::chip8emu::toHex32(pc) << "\n";
         step_mode_ = true;
     }
 
@@ -274,68 +270,84 @@ void Debugger32::printState(uint32_t opcode) {
         std::cout << "============================================================\n";
         
         // PC, Opcode 줄
-        std::cout << "PC = [        ]  Opcode = [        ]  -> \n";
+        std::cout << "PC=[        ]  Opcode=[        ]  \n";
         
-        // R0~R15
-        std::cout << "R0-R15:\n";
-        for (int i = 0; i < 16; ++i) {
-            std::cout << "R" << std::dec << std::setw(2) << std::setfill('0') << i << " = [        ]  ";
-            if ((i + 1) % 4 == 0) std::cout << "\n";
+        // V0~V7
+        std::cout << "V0-V7: ";
+        for (int i = 0; i < 8; ++i) {
+            std::cout << "V" << std::hex << i
+                      << "=[        ]  ";
         }
-        
-        // R16~R31
-        std::cout << "\nR16-R31:\n";
-        for (int i = 16; i < 32; ++i) {
-            if (i == StackFrame::RBP_INDEX) {
-                std::cout << "RBP = [        ]  ";
-            } else if (i == StackFrame::RSP_INDEX) {
-                std::cout << "RSP = [        ]  ";
-            } else if (i == StackFrame::RIP_INDEX) {
-                std::cout << "RIP = [        ]  ";
-            } else {
-                std::cout << "R" << std::dec << std::setw(2) << std::setfill('0') << i << " = [        ]  ";
-            }
-            if ((i + 1) % 4 == 0) std::cout << "\n";
+        std::cout << "\n";
+
+        // V8~VF
+        std::cout << "V8-VF: ";
+        for (int i = 8; i < 16; ++i) {
+            std::cout << "V" << std::hex << i
+                      << "=[        ]  ";
         }
+        std::cout << "\n";
+
+        // I, SP, 타이머
+        std::cout << "I=[        ]  SP=[  ]  Delay=[  ]  Sound=[  ]\n";
         
-        // Special Registers
-        std::cout << "\nSpecial Registers:\n";
-        std::cout << "I = [        ]  SP = [        ]  Delay = [        ]  Sound = [        ]\n";
-        std::cout << "------------------------------------------------------------\n";
+        // 스택 내용 (32개, 32비트)
+        std::cout << "Stack: ";
+        for (int i = 0; i < 32; ++i) {
+            std::cout << "[        ] ";
+            if ((i + 1) % 8 == 0) std::cout << "\n       ";
+        }
+        std::cout << "\n--------------------------------------------------\n";
         
         first_debug_print_ = false;
     }
 
+    // 내부 상태 가져오기
+    uint32_t I     = chip8_.get_I();
+    uint8_t  sp    = chip8_.get_sp();
+    const uint32_t* V     = chip8_.getV32();
+    const uint32_t* stack = chip8_.getStack32();
+    uint8_t  delay = chip8_.get_delay_timer();
+    uint8_t  sound = chip8_.get_sound_timer();
+
     // 값들만 업데이트 (커서 위치 이동으로)
-    // PC 값 업데이트 (3번째 줄, 7번째 위치)
     std::cout << "\033[s";  // 현재 위치 저장
-    std::cout << "\033[3;7H" << toHex32(pc);  // PC 위치로 이동하여 값 출력
     
-    // Opcode 값 업데이트 (3번째 줄, 23번째 위치)
-    std::cout << "\033[3;23H" << toHex32(opcode);
+    // PC 값 업데이트 (4번째 줄, 4번째 위치)
+    std::cout << "\033[4;4H" << toHex32(pc);
     
-    // 명령어 이름 업데이트 (3번째 줄, 42번째 위치)
-    std::cout << "\033[3;42H" << std::left << std::setw(10) << disassemble(opcode);
+    // Opcode 값 업데이트 (4번째 줄, 23번째 위치)
+    std::cout << "\033[4;23H" << toHex32(opcode);
     
-    // R0~R15 값들 업데이트
-    for (int i = 0; i < 16; ++i) {
-        int line = 5 + (i / 4);  // 5번째 줄부터 시작
-        int col = 7 + (i % 4) * 17;  // 각 레지스터당 17칸 간격
-        std::cout << "\033[" << line << ";" << col << "H" << toHex32(chip8_.get_R(i));
+    // V0~V7 값들 업데이트 (5번째 줄)
+    for (int i = 0; i < 8; ++i) {
+        int col = 10 + i * 13;  // V0부터 13칸 간격
+        std::cout << "\033[5;" << col << "H" << toHex32(V[i]);
     }
     
-    // R16~R31 값들 업데이트  
-    for (int i = 16; i < 32; ++i) {
-        int line = 10 + ((i - 16) / 4);  // 10번째 줄부터 시작
-        int col = 7 + ((i - 16) % 4) * 17;
-        std::cout << "\033[" << line << ";" << col << "H" << toHex32(chip8_.get_R(i));
+    // V8~VF 값들 업데이트 (6번째 줄)
+    for (int i = 8; i < 16; ++i) {
+        int col = 10 + (i - 8) * 13;  // V8부터 13칸 간격
+        std::cout << "\033[6;" << col << "H" << toHex32(V[i]);
     }
     
-    // Special Registers 업데이트 (14번째 줄)
-    std::cout << "\033[14;5H" << toHex32(chip8_.get_I());  // I
-    std::cout << "\033[14;21H" << std::setw(8) << std::setfill('0') << static_cast<int>(chip8_.get_sp());  // SP
-    std::cout << "\033[14;37H" << std::setw(8) << std::setfill('0') << static_cast<int>(chip8_.get_delay_timer());  // Delay
-    std::cout << "\033[14;53H" << std::setw(8) << std::setfill('0') << static_cast<int>(chip8_.get_sound_timer());  // Sound
+    // I, SP, 타이머 업데이트 (7번째 줄)
+    std::cout << "\033[7;3H" << toHex32(I);      // I
+    std::cout << "\033[7;19H" << toHex8(sp);     // SP
+    std::cout << "\033[7;33H" << toHex8(delay);  // Delay
+    std::cout << "\033[7;46H" << toHex8(sound);  // Sound
+    
+    // 스택 값들 업데이트 (8번째 줄부터)
+    for (int i = 0; i < 32; ++i) {
+        int line = 8 + (i / 8);  // 8줄부터 시작, 8개씩
+        int col = 8 + (i % 8) * 11;  // 11칸 간격
+        std::cout << "\033[" << line << ";" << col << "H" << toHex32(stack[i]);
+        
+        // SP 표시
+        if (i == sp) {
+            std::cout << "\033[" << line << ";" << (col + 8) << "H<";
+        }
+    }
     
     std::cout << "\033[u";  // 저장된 위치로 복원
     std::cout << std::flush;
@@ -348,8 +360,14 @@ void Debugger32::printState(uint32_t opcode) {
 }
 
 std::string Debugger32::disassemble(uint32_t opcode) {
+    // 32비트에서는 전체 4바이트를 사용하여 분류
     uint8_t first = (opcode >> 24) & 0xFF;
-    
+
+    // 기존과 동일한 분류 방식 사용하되, 32비트 표시
+    static const char* kNames32[16] = {
+        "SYS", "JP", "CALL", "SE", "SNE", "SE", "LD", "ADD",
+        "ALU", "SNE", "LDI", "JP V0", "RND", "DRW", "KEY", "MISC" };
+
     std::ostringstream oss;
     
     // 스택 프레임 명령어 특별 처리
@@ -373,15 +391,9 @@ std::string Debugger32::disassemble(uint32_t opcode) {
         return oss.str();
     }
     
-    // 기본 32비트 명령어
-    static const char* kNames[32] = {
-        "SYS", "JP", "CALL", "SE", "SNE", "SE", "LD", "ADD",
-        "ALU", "SNE", "LDI", "JP V0", "RND", "DRW", "KEY", "MISC",
-        "SYSCALL", "STACK", "EXT18", "EXT19", "EXT20", "EXT21", "EXT22", "EXT23",
-        "EXT24", "EXT25", "EXT26", "EXT27", "EXT28", "EXT29", "EXT30", "EXT31"
-    };
-    
-    oss << (first < 32 ? kNames[first] : "UNK") << "_32";
+    // 32비트 분류: 상위 바이트를 기준으로 분류
+    uint8_t classification = (first >> 4) & 0x0F;
+    oss << (classification < 16 ? kNames32[classification] : "UNK");
     return oss.str();
 }
 
@@ -472,7 +484,7 @@ std::string Debugger32::getStackInstructionName(uint32_t opcode) {
     }
 }
 
-// 🔧 추가: 누락된 함수 구현
+// 누락된 함수 구현
 void Debugger32::drawStackDiagram(const Chip8_32& chip8_32, uint32_t highlight_addr) {
     StackVisualizer visualizer;
     visualizer.drawStackFrame(chip8_32, "CURRENT STATE", highlight_addr);
@@ -576,7 +588,7 @@ void StackVisualizer::drawStackFrame(const Chip8_32& chip8_32, const std::string
     drawFixedStackStatus(chip8_32, rbp, rsp);
 }
 
-// 🎬 **4.3 스택 프레임 애니메이션 구현**
+// 스택 프레임 애니메이션 구현
 void StackVisualizer::animateStackFrame(const Chip8_32& chip8_32, const std::string& phase, 
                                        const std::string& instruction, bool wait_for_input) {
     clearScreen();
@@ -629,7 +641,7 @@ void StackVisualizer::interactiveStackDebug(Chip8_32& chip8_32) {
 }
 
 
-// 🎬 애니메이션 헬퍼 함수들
+// 애니메이션 헬퍼 함수들
 void StackVisualizer::clearScreen() {
     #ifdef _WIN32
         system("cls");
@@ -881,138 +893,38 @@ void StackVisualizer::simulateX86AddFunction(Chip8_32& chip8_32, uint32_t num1, 
     uint32_t original_rbp = chip8_32.get_R(StackFrame::RBP_INDEX);
     uint32_t original_rsp = chip8_32.get_R(StackFrame::RSP_INDEX);
     
-    clearScreen();
-    std::cout << "\nCOMPLETE STACK FRAME SIMULATION (Start Function -> main)\n";
-    std::cout << "=========================================================\n\n";
-    std::cout << "Simulating: int main() { int a=" << num1 << "; int b=" << num2 << "; int c=a+b; return 0; }\n\n";
+    std::cout << "\nSimulating: int main() { int a=" << num1 << "; int b=" << num2 << "; int c=a+b; return 0; }\n";
     
-    // ==================== STEP 1: START FUNCTION CALLS main() ====================
-    std::cout << "STEP 1: Start Function calls main()\n";
+    // 간소화된 스택 프레임 시뮬레이션
+    uint32_t rbp = original_rsp - 8;
+    chip8_32.set_R(StackFrame::RBP_INDEX, rbp);
+    chip8_32.set_R(StackFrame::RSP_INDEX, rbp - 16);
     
-    // Return address 저장 (Start Function에서 main 호출 후 돌아갈 주소)
-    uint32_t return_address = 0x1000;  // Start Function의 다음 명령어 주소
-    chip8_32.set_R(StackFrame::RSP_INDEX, original_rsp - 4);
-    uint32_t rsp = chip8_32.get_R(StackFrame::RSP_INDEX);
-    chip8_32.set_memory(rsp, (return_address >> 24) & 0xFF);
-    chip8_32.set_memory(rsp + 1, (return_address >> 16) & 0xFF);
-    chip8_32.set_memory(rsp + 2, (return_address >> 8) & 0xFF);
-    chip8_32.set_memory(rsp + 3, return_address & 0xFF);
-    
-    animateStackFrame(chip8_32, "STEP 1: CALL main()", "CALL main ; push return address");
-    
-    // ==================== STEP 2: main() FUNCTION PROLOGUE ====================
-    std::cout << "STEP 2: main() Function Prologue\n";
-    
-    // 이전 RBP 저장
-    chip8_32.set_R(StackFrame::RSP_INDEX, rsp - 4);
-    rsp = chip8_32.get_R(StackFrame::RSP_INDEX);
-    chip8_32.set_memory(rsp, (original_rbp >> 24) & 0xFF);
-    chip8_32.set_memory(rsp + 1, (original_rbp >> 16) & 0xFF);
-    chip8_32.set_memory(rsp + 2, (original_rbp >> 8) & 0xFF);
-    chip8_32.set_memory(rsp + 3, original_rbp & 0xFF);
-    
-    animateStackFrame(chip8_32, "STEP 2: PROLOGUE", "PUSH RBP ; save old frame pointer");
-    
-    // RBP = RSP (새로운 스택 프레임 설정)
-    chip8_32.set_R(StackFrame::RBP_INDEX, rsp);
-    uint32_t rbp = chip8_32.get_R(StackFrame::RBP_INDEX);
-    
-    animateStackFrame(chip8_32, "STEP 2: PROLOGUE", "MOV RBP, RSP ; establish new frame");
-    
-    // 지역변수를 위한 공간 할당 (16바이트: a, b, c + 정렬)
-    chip8_32.set_R(StackFrame::RSP_INDEX, rsp - 16);
-    
-    animateStackFrame(chip8_32, "STEP 2: PROLOGUE", "SUB RSP, 16 ; allocate space for local variables");
-    
-    // ==================== STEP 3: 변수 a 선언 및 초기화 ====================
-    std::cout << "STEP 3: Declare and initialize variable a\n";
-    
+    // 변수 저장
     uint32_t var_a_addr = rbp - 4;
+    uint32_t var_b_addr = rbp - 8;
+    uint32_t var_c_addr = rbp - 12;
+    uint32_t result = num1 + num2;
+    
+    // 메모리에 변수 저장
     chip8_32.set_memory(var_a_addr, (num1 >> 24) & 0xFF);
     chip8_32.set_memory(var_a_addr + 1, (num1 >> 16) & 0xFF);
     chip8_32.set_memory(var_a_addr + 2, (num1 >> 8) & 0xFF);
     chip8_32.set_memory(var_a_addr + 3, num1 & 0xFF);
     
-    animateStackFrame(chip8_32, "STEP 3: DECLARE a", "MOV [RBP-4], " + std::to_string(num1) + " ; int a = " + std::to_string(num1));
-    
-    // ==================== STEP 4: 변수 b 선언 및 초기화 ====================
-    std::cout << "STEP 4: Declare and initialize variable b\n";
-    
-    uint32_t var_b_addr = rbp - 8;
     chip8_32.set_memory(var_b_addr, (num2 >> 24) & 0xFF);
     chip8_32.set_memory(var_b_addr + 1, (num2 >> 16) & 0xFF);
     chip8_32.set_memory(var_b_addr + 2, (num2 >> 8) & 0xFF);
     chip8_32.set_memory(var_b_addr + 3, num2 & 0xFF);
     
-    animateStackFrame(chip8_32, "STEP 4: DECLARE b", "MOV [RBP-8], " + std::to_string(num2) + " ; int b = " + std::to_string(num2));
-    
-    // ==================== STEP 5: 덧셈 연산 수행 ====================
-    std::cout << "STEP 5: Perform addition operation\n";
-    
-    animateStackFrame(chip8_32, "STEP 5: CALCULATION", "MOV RAX, [RBP-4] ; load a=" + std::to_string(num1) + " into RAX");
-    
-    animateStackFrame(chip8_32, "STEP 5: CALCULATION", "MOV RDX, [RBP-8] ; load b=" + std::to_string(num2) + " into RDX");
-    
-    animateStackFrame(chip8_32, "STEP 5: CALCULATION", "ADD RAX, RDX ; RAX = " + std::to_string(num1) + " + " + std::to_string(num2) + " = " + std::to_string(num1 + num2));
-    
-    // ==================== STEP 6: 결과를 변수 c에 저장 ====================
-    std::cout << "STEP 6: Store result in variable c\n";
-    
-    uint32_t result = num1 + num2;
-    uint32_t var_c_addr = rbp - 12;
     chip8_32.set_memory(var_c_addr, (result >> 24) & 0xFF);
     chip8_32.set_memory(var_c_addr + 1, (result >> 16) & 0xFF);
     chip8_32.set_memory(var_c_addr + 2, (result >> 8) & 0xFF);
     chip8_32.set_memory(var_c_addr + 3, result & 0xFF);
     
-    animateStackFrame(chip8_32, "STEP 6: STORE RESULT", "MOV [RBP-12], RAX ; int c = " + std::to_string(result));
+    animateStackFrame(chip8_32, "FINAL RESULT", "Stack frame with a=" + std::to_string(num1) + ", b=" + std::to_string(num2) + ", c=" + std::to_string(result));
     
-    // ==================== STEP 7: main() 함수 종료 준비 ====================
-    std::cout << "STEP 7: main() function cleanup and return\n";
-    
-    // RAX에 반환값 0 설정
-    animateStackFrame(chip8_32, "STEP 7: RETURN PREP", "MOV RAX, 0 ; set return value");
-    
-    // RSP = RBP (스택 포인터 복원)
-    chip8_32.set_R(StackFrame::RSP_INDEX, rbp);
-    
-    animateStackFrame(chip8_32, "STEP 7: EPILOGUE", "MOV RSP, RBP ; restore stack pointer");
-    
-    // RBP 복원
-    rsp = chip8_32.get_R(StackFrame::RSP_INDEX);
-    uint32_t restored_rbp = (chip8_32.get_memory(rsp) << 24) |
-                           (chip8_32.get_memory(rsp + 1) << 16) |
-                           (chip8_32.get_memory(rsp + 2) << 8) |
-                           chip8_32.get_memory(rsp + 3);
-    chip8_32.set_R(StackFrame::RBP_INDEX, restored_rbp);
-    chip8_32.set_R(StackFrame::RSP_INDEX, rsp + 4);
-    
-    animateStackFrame(chip8_32, "STEP 7: EPILOGUE", "POP RBP ; restore old frame pointer");
-    
-    // ==================== STEP 8: Start Function으로 복귀 ====================
-    std::cout << "STEP 8: Return to Start Function\n";
-    
-    // Return address로 복귀
-    rsp = chip8_32.get_R(StackFrame::RSP_INDEX);
-    chip8_32.set_R(StackFrame::RSP_INDEX, rsp + 4);  // return address pop
-    
-    animateStackFrame(chip8_32, "STEP 8: RETURN", "RET ; return to Start Function");
-    
-    // 최종 결과 표시
-    clearScreen();
-    std::cout << "\n=========================================================\n";
-    std::cout << "         COMPLETE STACK FRAME SIMULATION DONE!         \n";
-    std::cout << "=========================================================\n\n";
-    std::cout << "MEMORY LAYOUT:\n";
-    std::cout << "   RBP + 4: Return Address (Start Function)\n";
-    std::cout << "   RBP:     Previous RBP\n";
-    std::cout << "   RBP - 4: int a = " << num1 << "\n";
-    std::cout << "   RBP - 8: int b = " << num2 << "\n";
-    std::cout << "   RBP - 12: int c = " << result << " (a + b)\n\n";
-    std::cout << "COMPLETE FUNCTION CALL CYCLE: Start -> main() -> return\n";
-    std::cout << "Proper x86-64 calling convention followed\n";
-    std::cout << "Stack frame correctly established and destroyed\n\n";
-    
+    std::cout << "\nStack simulation complete: " << num1 << " + " << num2 << " = " << result << std::endl;
 }
 
 void StackVisualizer::resetVisualizerState() {

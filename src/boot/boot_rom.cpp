@@ -7,7 +7,7 @@
 
 void BootROM::load_into_memory(Chip8_32& chip8) {
     // 1. Boot ROM 명령어들을 메모리 0x0000부터 로드 (자동 크기 사용)
-    for (size_t i = 0; i < BOOT_ROM_SIZE; ++i) {  // 🔧 BOOT_ROM_SIZE 사용
+    for (size_t i = 0; i < BOOT_ROM_SIZE; ++i) {  // BOOT_ROM_SIZE 사용
         uint32_t opcode = BOOT_ROM[i];
         chip8.set_memory(0x0000 + i*4 + 0, (opcode >> 24) & 0xFF);
         chip8.set_memory(0x0000 + i*4 + 1, (opcode >> 16) & 0xFF);

@@ -71,7 +71,7 @@ public:
     Platform(const char* title, int window_width, int window_height, int texture_width, int texture_height);
     bool Initialize();
     
-    // 🔧 **핵심 수정: 키패드를 실제로 전달받고 업데이트**
+    // **핵심 수정: 키패드를 실제로 전달받고 업데이트**
     bool ProcessInput(std::array<uint8_t, 16>& keypad);
     
     void Update(const std::array<uint8_t, VIDEO_WIDTH * VIDEO_HEIGHT>& video, int pitch);

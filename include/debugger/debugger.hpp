@@ -2,8 +2,8 @@
 #include <cstdint>
 #include <string>
 #include <set>
-#include <vector>  // 🔧 추가: std::vector 사용을 위해 필수
-#include <iomanip>  // 🔧 추가: std::setw, std::setfill 사용을 위해
+#include <vector>  // 추가: std::vector 사용을 위해 필수
+#include <iomanip>  // 추가: std::setw, std::setfill 사용을 위해
 
 // 전방 선언 (네임스페이스 없이)
 class Chip8;
@@ -80,7 +80,7 @@ public:
     void drawStackFrame(const Chip8_32& chip8_32, const std::string& phase = "", uint32_t highlight_addr = 0);
     
     /**
-     * @brief 🔥 애니메이션 스택 프레임 시각화 (4.3 단계)
+     * @brief 애니메이션 스택 프레임 시각화 (4.3 단계)
      * @param chip8_32 32비트 CHIP-8 시스템 참조
      * @param phase 현재 단계 이름
      * @param instruction 현재 실행 중인 명령어
@@ -90,7 +90,7 @@ public:
                           const std::string& instruction = "", bool wait_for_input = true);
     
     /**
-     * @brief 🚀 대화형 스택 프레임 디버깅 (메인 진입점)
+     * @brief 대화형 스택 프레임 디버깅 (메인 진입점)
      * @param chip8_32 32비트 CHIP-8 시스템 참조
      */
     void interactiveStackDebug(Chip8_32& chip8_32);
@@ -121,10 +121,10 @@ public:
     void resetVisualizerState();
 
 private:
-    std::vector<StackCell> stack_cells_;  // 🔧 수정: 이제 제대로 선언됨
+    std::vector<StackCell> stack_cells_;  // 수정: 이제 제대로 선언됨
     
     /**
-     * @brief 🔥 실시간 스택 메모리 분석 (4.2 단계)
+     * @brief 실시간 스택 메모리 분석 (4.2 단계)
      * @param chip8_32 32비트 CHIP-8 시스템 참조
      */
     void analyzeRealTimeStack(const Chip8_32& chip8_32);
@@ -141,7 +141,7 @@ private:
     std::string formatStackCell(uint32_t addr, uint32_t value, uint32_t rbp, uint32_t rsp, uint32_t highlight_addr);
     
     /**
-     * @brief 🎯 포인터 정보 반환
+     * @brief 포인터 정보 반환
      * @param addr 주소
      * @param rbp RBP 값
      * @param rsp RSP 값
@@ -186,14 +186,14 @@ private:
     void drawPointers(uint32_t rbp, uint32_t rsp);
     
     /**
-     * @brief 🎬 애니메이션 헬퍼 함수들
+     * @brief 애니메이션 헬퍼 함수들
      */
     void clearScreen();
     void waitForUser(const std::string& message = "Press ENTER to continue...");
     void showInstructionInfo(const std::string& instruction, const std::string& description);
     
     /**
-     * @brief 📝 사용자 입력 관련 함수들
+     * @brief 사용자 입력 관련 함수들
      */
     std::pair<uint32_t, uint32_t> getUserInput();  // 세 자리 수 두 개 입력받기
     void simulateX86AddFunction(Chip8_32& chip8_32, uint32_t num1, uint32_t num2);  // x86-64 스타일 덧셈
@@ -234,10 +234,10 @@ public:
     std::string disassemble(uint32_t opcode);
     void handleDebugInput();
     
-    // 🔧 추가: 누락된 함수 선언
+    // 추가: 누락된 함수 선언
     void drawStackDiagram(const Chip8_32& chip8_32, uint32_t highlight_addr = 0);
     
-    // 🔥 **4단계 완성: 스택 프레임 시각화 통합**
+    // **4단계 완성: 스택 프레임 시각화 통합**
     std::string getStackInstructionName(uint32_t opcode);
 
 private:
