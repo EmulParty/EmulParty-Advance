@@ -1,3 +1,0 @@
-/home/dayoon/chip8-emulator/build/CMakeFiles/rebuild_cache.dir
-/home/dayoon/chip8-emulator/build/CMakeFiles/chip8.dir
-/home/dayoon/chip8-emulator/build/CMakeFiles/edit_cache.dir

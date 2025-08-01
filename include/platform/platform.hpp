@@ -1,61 +1,101 @@
+// platform.hpp - 키패드 참조로 수정
 #pragma once
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
+#include <vector>
+#include <queue>
 #include "common/constants.hpp"
 
-/**
- * @brief Platform 클래스는 SDL2 기반 입출력을 담당하는 플랫폼 추상화 계층입니다.
- * - 화면 렌더링 (video buffer -> 화면)
- * - 키 입력 처리 (PC 키보드 -> CHIP-8 키패드 배열)
- * - SDL 초기화 및 종료 관리
- */
 class Platform {
-public:
-    /**
-     * @brief Platform 생성자
-     * @param title 창 제목
-     * @param window_width 윈도우 너비 (픽셀 기준)
-     * @param window_height 윈도우 높이
-     * @param texture_width 내부 텍스처 너비 (CHIP-8 원본 해상도)
-     * @param texture_height 내부 텍스처 높이
-     */
-
-    Platform(const char* title, int window_width, int window_height, int texture_width, int texture_height);
-
-    /**
-     * @brief SDL 초기화 및 창/렌더러/텍스처 준비
-     * @return 초기화 성공 여부
-    */
-    bool Initialize();
-
-    /**
-     * @brief 사용자 입력 처리
-     * @param keypad 키보드 배열 (CHIP-8 16키)
-     * @return SDL 종료 이벤트 발생 여부
-    */
-    bool ProcessInput(std::array<uint8_t, 16>& keypad);
-
-    /**
-     * @brief CHIP-8 화면 출력
-     * @param video 비디오 메모리 배열 (흑백 64x32)
-     * @param pitch 한 줄당 바이트 수 (ex: VIDEO_WIDTH * sizeof(uint32_t))
-    */
-   void Update(const std::array<uint8_t, VIDEO_WIDTH * VIDEO_HEIGHT>& video, int pitch);
-
-   /**
-    * * @brief 소멸자: SDL 리소스 해제
-   */
-  ~Platform();
-
 private:
-    SDL_Window* window_;      // SDL 윈도우 객체
-    SDL_Renderer* renderer_;  // SDL 렌더러 객체
-    SDL_Texture* texture_;    // SDL 텍스처 객체
+    SDL_Window* window_;
+    SDL_Renderer* renderer_;
+    SDL_Texture* texture_;
+    TTF_Font* font_;
+    TTF_Font* font_large_;   // E.P.A용 큰 폰트 (80px)
 
-    int window_width_;        // 윈도우 너비
-    int window_height_;       // 윈도우 높이
-    int texture_width_;       // 텍스처 너비
-    int texture_height_;      // 텍스처 높이
+    int window_width_;
+    int window_height_;
+    int texture_width_;
+    int texture_height_;
+
+    enum class InputMode {
+        FILE_INPUT,
+        GAME,
+        CONSOLE_INPUT,
+        CALCULATOR
+    };
+
+    InputMode current_mode_;
+    std::string input_buffer_;
+    bool file_selected_;
+    
+    std::queue<std::string> console_input_queue_;
+    std::string current_console_input_;
+    bool console_input_ready_;
+    bool input_ready_;
+
+    // 계산기 관련 상태
+    std::string calc_num1_;          // 첫 번째 숫자
+    std::string calc_num2_;          // 두 번째 숫자  
+    std::string calc_operation_;     // 연산자 (1=+, 2=-, 3=*, 4=/)
+    std::string calc_result_;        // 계산 결과
+    int calc_input_phase_;           // 0=num1, 1=num2, 2=operation
+    bool calc_input_ready_;          // 계산기 입력 완료 여부
+    std::string calc_display_result_; // 화면 표시용 결과
+
+    bool ProcessFileInput(SDL_Event& event);
+    bool ProcessGameInput(SDL_Event& event, std::array<uint8_t, 16>& keypad); // 참조로 유지
+    bool ProcessConsoleInput(SDL_Event& event);
+    
+    void RenderFileInputUI();
+    void RenderConsoleInputUI();
+    void RenderText(const std::string& text, int x, int y, SDL_Color color);
+    void RenderTextCentered(const std::string& text, int y, SDL_Color color);
+    void RenderTextCenteredLarge(const std::string& text, int y, SDL_Color color);
+    std::vector<std::string> console_output_;
+    
+    // 계산기 관련 메서드
+    void RenderCalculatorUI();
+    bool ProcessCalculatorInput(SDL_Event& event);
+    void CalculateResult();
+    std::string GetOperationSymbol(const std::string& op);
+    
+
+
+public:
+    Platform(const char* title, int window_width, int window_height, int texture_width, int texture_height);
+    bool Initialize();
+    
+    // **핵심 수정: 키패드를 실제로 전달받고 업데이트**
+    bool ProcessInput(std::array<uint8_t, 16>& keypad);
+    
+    void Update(const std::array<uint8_t, VIDEO_WIDTH * VIDEO_HEIGHT>& video, int pitch);
+    void UpdateFileInput();
+    void UpdateConsoleInput();
+    ~Platform();
+    void RenderConsoleOutput();
+    void RenderTextQueue(const std::string& text);
+    std::string GetSelectedFile();
+    bool IsFileSelected() const;
+    void ResetFileInput();
+    void SwitchToGameMode();
+    void SwitchToConsoleMode();
+    void ForceConsoleMode();
+    void ProcessEvents();
+    bool IsConsoleInputReady() const;
+    std::string GetConsoleInput();
+    void ClearConsoleInput();
+    void RequestConsoleInput(const std::string& prompt = "Enter input: ");
+
+    // 계산기 관련 메서드
+    void SwitchToCalculatorMode();
+    bool IsCalculatorInputReady() const;
+    std::string GetCalculatorInput();
+    void ClearCalculatorInput();
+    void UpdateCalculator();
 };
