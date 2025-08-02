@@ -1,7 +1,7 @@
 // boot_rom_data.cpp - 자동 크기 조정 버전
 #include "boot_rom_data.hpp"
 
-// 🔧 **수정: 자동 크기 조정 + 크기 상수 정의**
+// 자동 크기 조정 + 크기 상수 정의
 const uint32_t BOOT_ROM[] = {
     // 0x0000: R17에 메시지 길이 설정 (부팅 메시지)
     0x06110030,  // LD R17, 48 ("NeoCHIP-8 BootROM v2.0 - Enter ROM filename: ")
@@ -28,5 +28,5 @@ const uint32_t BOOT_ROM[] = {
     0x00000000   // NOP
 };
 
-// 🔧 **배열 크기 상수 정의**
+// 배열 크기 상수 정의
 const size_t BOOT_ROM_SIZE = sizeof(BOOT_ROM) / sizeof(BOOT_ROM[0]);

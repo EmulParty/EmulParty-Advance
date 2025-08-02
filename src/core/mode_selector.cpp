@@ -22,7 +22,7 @@ void ModeSelector::set_debug_mode(bool enable) {
     g_debug_mode = enable;
 }
 
-// 🚀 **핵심: 항상 32비트 BootROM으로 시작**
+// 핵심: 항상 32비트 BootROM으로 시작
 int ModeSelector::select_and_run() {
     std::cout << "[INFO] Starting Unified BootROM Architecture\n";
     std::cout << "[INFO] BootROM will handle file selection and mode switching\n";
@@ -161,7 +161,7 @@ int ModeSelector::run_8bit_mode_after_bootrom(Platform& platform) {
     while (!quit) {
         uint32_t frame_start = timer::get_ticks();
         
-        // 🔧 **핵심 수정: 실제 키패드 전달**
+        // 핵심 수정: 실제 키패드 전달
         quit = platform.ProcessInput(chip8.keypad);
         
         if (debugger8.isEnabled()) {

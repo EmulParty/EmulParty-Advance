@@ -41,7 +41,7 @@ namespace OpcodeTable_32 {
     }
 
     void debug_print_stack_state(Chip8_32& chip8_32, const std::string& phase) {
-        std::cout << "\n📊 STACK STATE [" << phase << "]:" << std::endl;
+        std::cout << "\nSTACK STATE [" << phase << "]:" << std::endl;
         std::cout << "   RBP = 0x" << std::hex << std::setw(8) << std::setfill('0') << chip8_32.get_RBP() << std::endl;
         std::cout << "   RSP = 0x" << std::hex << std::setw(8) << std::setfill('0') << chip8_32.get_RSP() << std::endl;
         std::cout << "   Stack Used: " << std::dec << (0xEFFF - chip8_32.get_RSP()) << " bytes" << std::endl;
@@ -50,17 +50,16 @@ namespace OpcodeTable_32 {
     // === 메인 스택 프레임 시뮬레이션 함수 ===
     void debug_stack_frame_sum(Chip8_32& chip8_32, uint32_t a, uint32_t b, uint32_t c) {
         std::cout << "\n" << std::string(60, '=') << std::endl;
-        std::cout << "🔥 STACK FRAME SIMULATION: sum(" << a << ", " << b << ", " << c << ")" << std::endl;
+        std::cout << "STACK FRAME SIMULATION: sum(" << a << ", " << b << ", " << c << ")" << std::endl;
         std::cout << std::string(60, '=') << std::endl;
         
         // 초기 상태 저장
         uint32_t original_rbp = chip8_32.get_RBP();
-        // uint32_t original_rsp = chip8_32.get_RSP();  // ← 이 줄 제거 (사용안함)
         
         debug_print_stack_state(chip8_32, "INITIAL");
         
         // === STEP 1: FUNCTION PROLOGUE ===
-        std::cout << "\n🚀 STEP 1: FUNCTION PROLOGUE" << std::endl;
+        std::cout << "\nSTEP 1: FUNCTION PROLOGUE" << std::endl;
         
         // PUSH RBP
         std::cout << "1.1 PUSH RBP:" << std::endl;
@@ -80,7 +79,7 @@ namespace OpcodeTable_32 {
         debug_print_stack_state(chip8_32, "AFTER PROLOGUE");
         
         // === STEP 2: PARAMETER STORAGE ===
-        std::cout << "\n📦 STEP 2: PARAMETER STORAGE" << std::endl;
+        std::cout << "\nSTEP 2: PARAMETER STORAGE" << std::endl;
         
         uint32_t addr_a = chip8_32.get_RBP() - 4;
         uint32_t addr_b = chip8_32.get_RBP() - 8;
@@ -98,7 +97,7 @@ namespace OpcodeTable_32 {
         debug_print_stack_state(chip8_32, "AFTER PARAM STORAGE");
         
         // === STEP 3: CALCULATION ===
-        std::cout << "\n🧮 STEP 3: CALCULATION" << std::endl;
+        std::cout << "\nSTEP 3: CALCULATION" << std::endl;
         
         std::cout << "3.1 Load parameter 'a':" << std::endl;
         uint32_t val_a = debug_read_stack_32(chip8_32, addr_a);
@@ -125,11 +124,11 @@ namespace OpcodeTable_32 {
         debug_print_stack_state(chip8_32, "AFTER CALCULATION");
         
         // === STEP 4: FUNCTION EPILOGUE ===
-        std::cout << "\n🔄 STEP 4: FUNCTION EPILOGUE" << std::endl;
+        std::cout << "\nSTEP 4: FUNCTION EPILOGUE" << std::endl;
         
-        // Load return value (warning 제거: 실제로 사용)
+        // Load return value
         std::cout << "4.1 Load return value:" << std::endl;
-        debug_read_stack_32(chip8_32, addr_result);  // ← 변수에 저장하지 않고 바로 호출
+        debug_read_stack_32(chip8_32, addr_result);
         
         // ADD RSP, 16 (stack cleanup)
         std::cout << "\n4.2 ADD RSP, 16 (stack cleanup):" << std::endl;
@@ -146,8 +145,8 @@ namespace OpcodeTable_32 {
         
         // === RESULT ===
         std::cout << "\n" << std::string(60, '=') << std::endl;
-        std::cout << "🎯 RESULT: sum(" << a << ", " << b << ", " << c << ") = " << result << std::endl;
-        std::cout << "✅ Stack frame simulation completed successfully!" << std::endl;
+        std::cout << "RESULT: sum(" << a << ", " << b << ", " << c << ") = " << result << std::endl;
+        std::cout << "Stack frame simulation completed successfully!" << std::endl;
         std::cout << std::string(60, '=') << std::endl;
     }
 
@@ -905,7 +904,7 @@ namespace OpcodeTable_32 {
 
     // === 기존 OP_STACK_FRAME_DEBUG 함수를 이것으로 교체 ===
     void OP_STACK_FRAME_DEBUG(Chip8_32& chip8_32, uint32_t opcode) {
-        std::cout << "\n🔥 STACK FRAME DEBUG MODE ACTIVATED!" << std::endl;
+        std::cout << "\nSTACK FRAME DEBUG MODE ACTIVATED!" << std::endl;
         std::cout << "Opcode: 0x" << std::hex << opcode << std::dec << std::endl;
         
         // 하드코딩된 값들
