@@ -344,7 +344,7 @@ make test-io        # I/O 시스템 테스트
 
 ## 라이센스
 
-이 프로젝트는 MIT 라이센스 하에 라이센스됩니다 - 자세한 내용은 [LICENSE](https://claude.ai/chat/LICENSE) 파일을 참조하세요.
+이 프로젝트는 Apache 2.0 라이센스 하에 라이센스됩니다 - 자세한 내용은 LICENSE 문서를 참조하세요.
 
 ## Reference
 
