@@ -6,11 +6,13 @@
 #include "io_manager.hpp"
 #include "sdl_console_io.hpp"
 #include "stack_frame.hpp"
+#include "security/audit_log.hpp"
 #include <cstring>
 #include <random>
 #include <fstream>
 #include <vector>
 #include <iostream>
+#include <stdexcept>
 
 // 기본 폰트셋 (각 숫자는 4x5 픽셀로 구성됨)
 static const uint8_t chip8_fontset_32[80] = {
@@ -139,13 +141,13 @@ bool Chip8_32::load_rom(const char* filename) {
     }
 
     std::streamsize size = rom.tellg();
-    loaded_rom_size = static_cast<size_t>(size);
     rom.seekg(0, std::ios::beg);
 
-    if (size <= 0 || size > MEMORY_SIZE_32 - 0x200) {
+    if (size <= 0 || size > static_cast<std::streamsize>(MEMORY_SIZE_32 - 0x200)) {
         std::cerr << "ROM size invalid or too large: " << size << std::endl;
         return false;
     }
+    loaded_rom_size = static_cast<size_t>(size);
 
     std::vector<char> buffer(size);
     if (!rom.read(buffer.data(), size)) {
@@ -157,22 +159,51 @@ bool Chip8_32::load_rom(const char* filename) {
         memory[0x200 + i] = static_cast<uint8_t>(buffer[i]);
     }
 
+    // 새 ROM은 새 게스트 — 이전 폴트 상태를 끌고 오지 않는다.
+    clear_halt();
+
     std::cout << "Loaded ROM: " << filename << " (" << size << " bytes)" << std::endl;
     return true;
 }
 
+void Chip8_32::halt(const std::string& reason) {
+    // 게스트 폴트 표시. 같은 ROM이 매 cycle마다 폴트를 일으켜도 1회만 기록.
+    if (halted_) return;
+    halted_ = true;
+    halt_reason_ = reason;
+    security::AuditLog::record("guest_fault", security::Decision::Deny,
+        { {"reason", reason},
+          {"pc",     static_cast<unsigned long>(pc)},
+          {"opcode", std::to_string(opcode)} });
+    std::cerr << "[VMM] guest halted: " << reason
+              << " (pc=0x" << std::hex << pc << std::dec << ")" << std::endl;
+}
+
 void Chip8_32::cycle() {
+    // halt된 게스트는 더 이상 실행하지 않음 — main loop가 정리.
+    if (halted_) return;
+
     if (pc >= MEMORY_SIZE_32 - 3) {
-        std::cerr << "PC out of bounds: " << pc << std::endl;
+        // VMM crash 대신 게스트 폴트로 처리. (벡터 2 차단)
+        halt("pc_out_of_bounds");
         return;
     }
 
-    // 1. Fetch : 현재 pc 위치에서 4바이트 명령어를 읽음
-    opcode = (memory[pc] << 24) | (memory[pc + 1] << 16) |
-             (memory[pc + 2] << 8) | memory[pc + 3];
+    try {
+        // 1. Fetch : 현재 pc 위치에서 4바이트 명령어를 읽음
+        opcode = (memory[pc] << 24) | (memory[pc + 1] << 16) |
+                 (memory[pc + 2] << 8) | memory[pc + 3];
 
-    // 2. Decode & Execute : opcode 테이블을 통해 명령어 실행
-    OpcodeTable_32::Execute(*this, opcode);
+        // 2. Decode & Execute : opcode 테이블을 통해 명령어 실행
+        //    내부에서 set_memory(.at)이 throw할 수 있다 — 게스트 폴트로 흡수.
+        OpcodeTable_32::Execute(*this, opcode);
+    } catch (const std::out_of_range& e) {
+        halt(std::string("memory_oob: ") + e.what());
+        return;
+    } catch (const std::exception& e) {
+        halt(std::string("guest_exception: ") + e.what());
+        return;
+    }
 
     uint32_t current_time = timer::get_ticks();
     if (current_time - last_timer_update >= 16) {

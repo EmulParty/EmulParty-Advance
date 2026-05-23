@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <memory>
+#include <string>
 #include "common/constants.hpp"
 #include "timer.hpp"
 #include "io_manager.hpp"
@@ -40,6 +41,12 @@ private:
     IOManager io_manager_; // I/O 장치 관리자
     Platform* platform_ptr_; // Platform 포인터 추가
     std::shared_ptr<SDLConsoleIO> console_io_; // SDLConsoleIO 인스턴스
+
+    // 게스트 폴트 상태 — 메모리 OOB·잘못된 opcode 등 게스트가 일으킨 오류가
+    // 발생하면 cycle()이 halt 플래그를 세우고 즉시 반환한다.
+    // VMM(에뮬레이터)은 죽지 않고 main loop가 이를 확인해 게스트만 정지시킨다.
+    bool halted_ = false;
+    std::string halt_reason_;
 
     void load_boot_rom();
     void setup_io_devices(); // Platform 의존적이므로 private
@@ -145,7 +152,16 @@ public:
     
     // IOManager 접근 함수
     IOManager& get_io_manager();
-    
+
     // SDLConsoleIO 접근 함수
     std::shared_ptr<SDLConsoleIO> get_console_io();
+
+    // ── Guest fault interface ─────────────────────────────────────────────
+    // halt(reason) : 게스트 폴트 발생을 표시. cycle() 내부에서 호출.
+    // is_halted()  : main loop가 이번 게스트를 더 돌릴지 결정.
+    // clear_halt() : 새 ROM 로드 시 상태 초기화.
+    void halt(const std::string& reason);
+    bool is_halted() const { return halted_; }
+    const std::string& halt_reason() const { return halt_reason_; }
+    void clear_halt() { halted_ = false; halt_reason_.clear(); }
 };
