@@ -14,6 +14,8 @@ public:
     
     // **디버그 모드 설정**
     static void set_debug_mode(bool enable);
+    static void set_startup_rom(const std::string& filename);
+    static void set_max_frames(int max_frames);
     
     // **SYSCALL에서 호출할 함수들**
     static bool load_and_switch_mode(Chip8_32& chip8_32, const std::string& filename);

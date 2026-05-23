@@ -1,0 +1,36 @@
+=== [1/5] BASELINE: normal pong.ch32 ===
+[AUDIT] {"ts":"2026-05-23T08:46:32Z","event":"vmm_start","jail_root":"/home/jyj0203/whitehatEmulation/EmulParty-Advance-remote/roms","max_rom_bytes":"65536"}
+[AUDIT] {"ts":"2026-05-23T08:46:32Z","event":"syscall_policy","decision":"allow","profile":"bootrom","syscall":"WRITE","num":"1"}
+
+=== [2/5] ATTACK V1a: path traversal ../../etc/passwd ===
+[AUDIT] {"ts":"2026-05-23T08:46:32Z","event":"vmm_start","jail_root":"/home/jyj0203/whitehatEmulation/EmulParty-Advance-remote/roms","max_rom_bytes":"65536"}
+[AUDIT] {"ts":"2026-05-23T08:46:32Z","event":"syscall_policy","decision":"allow","profile":"bootrom","syscall":"WRITE","num":"1"}
+[AUDIT] {"ts":"2026-05-23T08:46:33Z","event":"syscall_policy","decision":"allow","profile":"bootrom","syscall":"READ","num":"0"}
+[AUDIT] {"ts":"2026-05-23T08:46:33Z","event":"syscall_policy","decision":"allow","profile":"bootrom","syscall":"LOAD_ROM","num":"3"}
+[AUDIT] {"ts":"2026-05-23T08:46:33Z","event":"path_jail","decision":"deny","input":"../../etc/passwd","reason":"forbidden_character","detail":"filename contains path separator or NUL","caller":"load_and_switch_mode"}
+[BootROM] path_jail DENY: filename contains path separator or NUL
+
+=== [3/5] ATTACK V1b: absolute path /etc/passwd ===
+[AUDIT] {"ts":"2026-05-23T08:46:33Z","event":"vmm_start","jail_root":"/home/jyj0203/whitehatEmulation/EmulParty-Advance-remote/roms","max_rom_bytes":"65536"}
+[AUDIT] {"ts":"2026-05-23T08:46:33Z","event":"syscall_policy","decision":"allow","profile":"bootrom","syscall":"WRITE","num":"1"}
+[AUDIT] {"ts":"2026-05-23T08:46:34Z","event":"syscall_policy","decision":"allow","profile":"bootrom","syscall":"READ","num":"0"}
+[AUDIT] {"ts":"2026-05-23T08:46:34Z","event":"syscall_policy","decision":"allow","profile":"bootrom","syscall":"LOAD_ROM","num":"3"}
+[AUDIT] {"ts":"2026-05-23T08:46:34Z","event":"path_jail","decision":"deny","input":"/etc/passwd","reason":"forbidden_character","detail":"filename contains path separator or NUL","caller":"load_and_switch_mode"}
+[BootROM] path_jail DENY: filename contains path separator or NUL
+
+=== [4/5] ATTACK V1c: symlink escape ===
+[AUDIT] {"ts":"2026-05-23T08:46:34Z","event":"vmm_start","jail_root":"/home/jyj0203/whitehatEmulation/EmulParty-Advance-remote/roms","max_rom_bytes":"65536"}
+[AUDIT] {"ts":"2026-05-23T08:46:34Z","event":"syscall_policy","decision":"allow","profile":"bootrom","syscall":"WRITE","num":"1"}
+[AUDIT] {"ts":"2026-05-23T08:46:35Z","event":"syscall_policy","decision":"allow","profile":"bootrom","syscall":"READ","num":"0"}
+[AUDIT] {"ts":"2026-05-23T08:46:35Z","event":"syscall_policy","decision":"allow","profile":"bootrom","syscall":"LOAD_ROM","num":"3"}
+[AUDIT] {"ts":"2026-05-23T08:46:35Z","event":"path_jail","decision":"deny","input":"sneaky.ch32","reason":"escapes_root","detail":"resolved path escapes jail: /etc/passwd (root=/home/jyj0203/whitehatEmulation/EmulParty-Advance-remote/roms)","caller":"load_and_switch_mode"}
+[BootROM] path_jail DENY: resolved path escapes jail: /etc/passwd (root=/home/jyj0203/whitehatEmulation/EmulParty-Advance-remote/roms)
+
+=== [5/5] ATTACK V2: oversized ROM 100KB ===
+[AUDIT] {"ts":"2026-05-23T08:46:35Z","event":"vmm_start","jail_root":"/home/jyj0203/whitehatEmulation/EmulParty-Advance-remote/roms","max_rom_bytes":"65536"}
+[AUDIT] {"ts":"2026-05-23T08:46:35Z","event":"syscall_policy","decision":"allow","profile":"bootrom","syscall":"WRITE","num":"1"}
+[AUDIT] {"ts":"2026-05-23T08:46:36Z","event":"syscall_policy","decision":"allow","profile":"bootrom","syscall":"READ","num":"0"}
+[AUDIT] {"ts":"2026-05-23T08:46:36Z","event":"syscall_policy","decision":"allow","profile":"bootrom","syscall":"LOAD_ROM","num":"3"}
+[AUDIT] {"ts":"2026-05-23T08:46:36Z","event":"path_jail","decision":"allow","input":"huge.ch32","resolved":"/home/jyj0203/whitehatEmulation/EmulParty-Advance-remote/roms/huge.ch32"}
+[AUDIT] {"ts":"2026-05-23T08:46:36Z","event":"rom_size","decision":"deny","resolved":"/home/jyj0203/whitehatEmulation/EmulParty-Advance-remote/roms/huge.ch32","size":"102400","limit":"65536","reason":"exceeds_max_rom_bytes"}
+[BootROM] ROM too large: 102400 > 65536

@@ -130,7 +130,7 @@ private:
     void analyzeRealTimeStack(const Chip8_32& chip8_32);
     
     /**
-     * @brief 🎨 스택 셀 포맷팅
+     * @brief 스택 셀 포맷팅
      * @param addr 주소
      * @param value 값
      * @param rbp RBP 값
@@ -237,7 +237,7 @@ public:
     // 추가: 누락된 함수 선언
     void drawStackDiagram(const Chip8_32& chip8_32, uint32_t highlight_addr = 0);
     
-    // **4단계 완성: 스택 프레임 시각화 통합**
+    // 4단계 완성: 스택 프레임 시각화 통합
     std::string getStackInstructionName(uint32_t opcode);
 
 private:

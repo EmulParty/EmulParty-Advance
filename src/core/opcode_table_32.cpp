@@ -4,13 +4,15 @@
 #include "timer.hpp"          //  timer::get_ticks() 사용을 위해 추가!
 #include "stack_opcodes.hpp"   //  스택 관련 명령어를 사용하기 위해 추가!
 #include "stack_frame.hpp"
-#include "sdl_console_io.hpp"  
-#include "platform.hpp"      
+#include "sdl_console_io.hpp"
+#include "platform.hpp"
+#include "syscall/syscall_policy.hpp"
+#include "security/audit_log.hpp"
 #include <stdexcept>
 #include <iostream>
-#include <cstring>  
-#include <random>   
-#include <fstream>  
+#include <cstring>
+#include <random>
+#include <fstream>
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -41,7 +43,7 @@ namespace OpcodeTable_32 {
     }
 
     void debug_print_stack_state(Chip8_32& chip8_32, const std::string& phase) {
-        std::cout << "\n📊 STACK STATE [" << phase << "]:" << std::endl;
+        std::cout << "\nSTACK STATE [" << phase << "]:" << std::endl;
         std::cout << "   RBP = 0x" << std::hex << std::setw(8) << std::setfill('0') << chip8_32.get_RBP() << std::endl;
         std::cout << "   RSP = 0x" << std::hex << std::setw(8) << std::setfill('0') << chip8_32.get_RSP() << std::endl;
         std::cout << "   Stack Used: " << std::dec << (0xEFFF - chip8_32.get_RSP()) << " bytes" << std::endl;
@@ -50,17 +52,16 @@ namespace OpcodeTable_32 {
     // === 메인 스택 프레임 시뮬레이션 함수 ===
     void debug_stack_frame_sum(Chip8_32& chip8_32, uint32_t a, uint32_t b, uint32_t c) {
         std::cout << "\n" << std::string(60, '=') << std::endl;
-        std::cout << "🔥 STACK FRAME SIMULATION: sum(" << a << ", " << b << ", " << c << ")" << std::endl;
+        std::cout << "STACK FRAME SIMULATION: sum(" << a << ", " << b << ", " << c << ")" << std::endl;
         std::cout << std::string(60, '=') << std::endl;
         
         // 초기 상태 저장
         uint32_t original_rbp = chip8_32.get_RBP();
-        // uint32_t original_rsp = chip8_32.get_RSP();  // ← 이 줄 제거 (사용안함)
         
         debug_print_stack_state(chip8_32, "INITIAL");
         
         // === STEP 1: FUNCTION PROLOGUE ===
-        std::cout << "\n🚀 STEP 1: FUNCTION PROLOGUE" << std::endl;
+        std::cout << "\nSTEP 1: FUNCTION PROLOGUE" << std::endl;
         
         // PUSH RBP
         std::cout << "1.1 PUSH RBP:" << std::endl;
@@ -80,7 +81,7 @@ namespace OpcodeTable_32 {
         debug_print_stack_state(chip8_32, "AFTER PROLOGUE");
         
         // === STEP 2: PARAMETER STORAGE ===
-        std::cout << "\n📦 STEP 2: PARAMETER STORAGE" << std::endl;
+        std::cout << "\nSTEP 2: PARAMETER STORAGE" << std::endl;
         
         uint32_t addr_a = chip8_32.get_RBP() - 4;
         uint32_t addr_b = chip8_32.get_RBP() - 8;
@@ -98,7 +99,7 @@ namespace OpcodeTable_32 {
         debug_print_stack_state(chip8_32, "AFTER PARAM STORAGE");
         
         // === STEP 3: CALCULATION ===
-        std::cout << "\n🧮 STEP 3: CALCULATION" << std::endl;
+        std::cout << "\nSTEP 3: CALCULATION" << std::endl;
         
         std::cout << "3.1 Load parameter 'a':" << std::endl;
         uint32_t val_a = debug_read_stack_32(chip8_32, addr_a);
@@ -125,11 +126,11 @@ namespace OpcodeTable_32 {
         debug_print_stack_state(chip8_32, "AFTER CALCULATION");
         
         // === STEP 4: FUNCTION EPILOGUE ===
-        std::cout << "\n🔄 STEP 4: FUNCTION EPILOGUE" << std::endl;
+        std::cout << "\nSTEP 4: FUNCTION EPILOGUE" << std::endl;
         
-        // Load return value (warning 제거: 실제로 사용)
+        // Load return value
         std::cout << "4.1 Load return value:" << std::endl;
-        debug_read_stack_32(chip8_32, addr_result);  // ← 변수에 저장하지 않고 바로 호출
+        debug_read_stack_32(chip8_32, addr_result);
         
         // ADD RSP, 16 (stack cleanup)
         std::cout << "\n4.2 ADD RSP, 16 (stack cleanup):" << std::endl;
@@ -146,8 +147,8 @@ namespace OpcodeTable_32 {
         
         // === RESULT ===
         std::cout << "\n" << std::string(60, '=') << std::endl;
-        std::cout << "🎯 RESULT: sum(" << a << ", " << b << ", " << c << ") = " << result << std::endl;
-        std::cout << "✅ Stack frame simulation completed successfully!" << std::endl;
+        std::cout << "RESULT: sum(" << a << ", " << b << ", " << c << ") = " << result << std::endl;
+        std::cout << "Stack frame simulation completed successfully!" << std::endl;
         std::cout << std::string(60, '=') << std::endl;
     }
 
@@ -534,15 +535,15 @@ namespace OpcodeTable_32 {
 
     /// @brief SYSCALL 처리 (10SAAAAF) - ModeSelector 호출 수정 버전
     void OP_10SAAAAF(Chip8_32& chip8_32, uint32_t opcode) {
-        uint8_t syscall_num = (opcode & 0x00F00000) >> 20;  
-        uint16_t buffer_addr = (opcode & 0x000FFFF0) >> 4;  
-        uint8_t fd = opcode & 0x0000000F;                   
-        
+        uint8_t syscall_num = (opcode & 0x00F00000) >> 20;
+        uint16_t buffer_addr = (opcode & 0x000FFFF0) >> 4;
+        uint8_t fd = opcode & 0x0000000F;
+
         std::cout << "\n=== SYSCALL ===" << std::endl;
-        std::cout << "Syscall: " << static_cast<int>(syscall_num) 
-                << ", Buffer: 0x" << std::hex << buffer_addr 
-                << ", FD: " << std::dec << static_cast<int>(fd) << std::endl; 
-        
+        std::cout << "Syscall: " << static_cast<int>(syscall_num)
+                << ", Buffer: 0x" << std::hex << buffer_addr
+                << ", FD: " << std::dec << static_cast<int>(fd) << std::endl;
+
         // 주소 범위 체크
         if (buffer_addr >= MEMORY_SIZE_32) {
             std::cerr << "Invalid buffer address: 0x" << std::hex << buffer_addr << std::endl;
@@ -550,6 +551,31 @@ namespace OpcodeTable_32 {
             chip8_32.set_pc(chip8_32.get_pc() + 4);
             return;
         }
+
+        // ── 벡터 3 차단: SYSCALL 정책 게이트 (최소권한) ───────────────────────
+        // PC로 BootROM/Guest 프로파일을 구분 → 허용목록 외 syscall은 거부.
+        // BootROM 자신은 LOAD_ROM 포함 모든 호출 허용 (자체가 신뢰 코드).
+        const uint32_t caller_pc = chip8_32.get_pc();
+        const auto profile = security::SyscallPolicy::classify_by_pc(caller_pc);
+        const auto decision = security::SyscallPolicy::evaluate(profile, syscall_num);
+        if (!decision.allowed) {
+            security::AuditLog::record("syscall_policy", security::Decision::Deny,
+                { {"profile", security::to_string(profile)},
+                  {"syscall", decision.syscall_name},
+                  {"num",     static_cast<unsigned int>(syscall_num)},
+                  {"pc",      static_cast<unsigned long>(caller_pc)},
+                  {"reason",  decision.reason} });
+            std::cerr << "[VMM] syscall DENY: " << decision.syscall_name
+                      << " from " << security::to_string(profile)
+                      << " (" << decision.reason << ")" << std::endl;
+            chip8_32.set_R(16, 0xFFFFFFFF);
+            chip8_32.set_pc(caller_pc + 4);
+            return;
+        }
+        security::AuditLog::record("syscall_policy", security::Decision::Allow,
+            { {"profile", security::to_string(profile)},
+              {"syscall", decision.syscall_name},
+              {"num",     static_cast<unsigned int>(syscall_num)} });
 
         switch (syscall_num) {
             case 0x0: {  // READ syscall - 스택 프레임 지원 추가
@@ -905,7 +931,7 @@ namespace OpcodeTable_32 {
 
     // === 기존 OP_STACK_FRAME_DEBUG 함수를 이것으로 교체 ===
     void OP_STACK_FRAME_DEBUG(Chip8_32& chip8_32, uint32_t opcode) {
-        std::cout << "\n🔥 STACK FRAME DEBUG MODE ACTIVATED!" << std::endl;
+        std::cout << "\nSTACK FRAME DEBUG MODE ACTIVATED!" << std::endl;
         std::cout << "Opcode: 0x" << std::hex << opcode << std::dec << std::endl;
         
         // 하드코딩된 값들
