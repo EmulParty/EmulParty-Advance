@@ -346,6 +346,63 @@ make test-io        # I/O 시스템 테스트
 
 이 프로젝트는 Apache 2.0 라이센스 하에 라이센스됩니다 - 자세한 내용은 LICENSE 문서를 참조하세요.
 
+## 보안 모델 (VMM Hardening)
+
+EPA는 신뢰할 수 없는 게스트 ROM을 격리 실행하는 **가상 머신 모니터(VMM)** 다.  
+v2.0에서 호스트(=실제 컴퓨터)를 보호하기 위해 4개 가드를 추가했다.  
+자세한 설계는 [`docs/threat-model.md`](docs/threat-model.md), 실제 차단 시연은 [`docs/demo-evidence/`](docs/demo-evidence/) 참조.
+
+### 신뢰 경계
+
+```
+Guest ROM (신뢰 X) ┃ EPA VMM (TCB) ┃ Host OS (보호 대상)
+```
+
+게스트는 SYSCALL과 메모리 접근으로만 VMM과 통신한다.  
+공격자는 임의의 `.ch32` 바이트 또는 BootROM 입력 프롬프트 문자열을 제공할 수 있다고 가정한다.
+
+### 차단한 4종 탈출 벡터
+
+| 벡터 | CWE | 가드 모듈 | 작동 방식 |
+|---|---|---|---|
+| **파일시스템 탈출** (`../../etc/passwd`, `/etc/passwd`, symlink) | CWE-22 | `PathJail` | `roms/`를 `weakly_canonical`로 고정 후 `lexically_relative`로 prefix 검사 |
+| **호스트 DoS** (거대 ROM·OOB) | CWE-400/248 | ROM 크기 상한 + `Chip8_32::halt()` | 64KB 초과 거부, OOB는 게스트 폴트로 흡수해 VMM 보존 |
+| **최소권한 부재** (게스트의 LOAD_ROM 임의 호출) | CWE-269 | `SyscallPolicy` | PC로 BootROM/Guest 프로파일 분류 후 허용목록 게이트 |
+| **감사 부재** | CWE-778 | `AuditLog` | JSON Lines로 `epa_audit.log`에 결정 이벤트 기록 |
+
+### 헤드리스 시연 (호스트 파일 노출 ⇒ 차단)
+
+```bash
+cd build
+./chip8_dual --headless --rom ../../etc/passwd --max-frames 60
+# → [AUDIT] {"event":"path_jail","decision":"deny","input":"../../etc/passwd",
+#           "reason":"forbidden_character", ...}
+
+./chip8_dual --headless --rom /etc/passwd --max-frames 60       # 절대경로 차단
+ln -s /etc/passwd ../roms/sneaky.ch32
+./chip8_dual --headless --rom sneaky.ch32 --max-frames 60       # 심링크 탈출 차단
+
+dd if=/dev/zero of=../roms/huge.ch32 bs=1024 count=100
+./chip8_dual --headless --rom huge.ch32 --max-frames 60         # 100KB ROM 차단
+```
+
+### 회귀 테스트
+
+```bash
+cmake --build build --target test_hardening
+./build/test_hardening
+# All tests passed (23 assertions in 13 test cases)
+```
+
+### 기업 보안과의 매핑
+
+- **PathJail**           — Firecracker `jailer`, runc 파일시스템 격리
+- **ROM 크기 상한·halt** — 하이퍼바이저 fault isolation, cgroups
+- **SyscallPolicy**      — VMM seccomp 프로파일, 컨테이너 capability drop
+- **AuditLog (JSONL)**   — SIEM 적재, SOC 탐지, 침해 포렌식
+
+---
+
 ## Reference
 
 - Joseph Weisbecker의 원본 CHIP-8 사양
