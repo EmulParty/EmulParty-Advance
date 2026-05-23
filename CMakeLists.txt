@@ -10,6 +10,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/core
     ${CMAKE_SOURCE_DIR}/include/platform
     ${CMAKE_SOURCE_DIR}/include/syscall
+    ${CMAKE_SOURCE_DIR}/include/security
     ${CMAKE_SOURCE_DIR}/include/boot
     ${CMAKE_SOURCE_DIR}/include/common
     ${CMAKE_SOURCE_DIR}/include/debugger
@@ -28,6 +29,9 @@ set(SRC_FILES
     src/boot/boot_rom_data.cpp
     src/syscall/io_manager.cpp
     src/syscall/sdl_console_io.cpp
+    src/syscall/syscall_policy.cpp          # 🔒 VMM 하드닝: syscall 최소권한
+    src/security/path_jail.cpp              # 🔒 VMM 하드닝: FS jail
+    src/security/audit_log.cpp              # 🔒 VMM 하드닝: 구조화 감사 로그
     src/platform/platform.cpp
     src/platform/timer.cpp                  # ✅ timer 함수들 (mode_selector에서 사용)
     src/debugger/debugger.cpp               # ✅ 디버거 (mode_selector에서 사용)

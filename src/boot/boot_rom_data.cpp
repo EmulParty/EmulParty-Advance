@@ -4,7 +4,7 @@
 // 자동 크기 조정 + 크기 상수 정의
 const uint32_t BOOT_ROM[] = {
     // 0x0000: R17에 메시지 길이 설정 (부팅 메시지)
-    0x06110030,  // LD R17, 48 ("NeoCHIP-8 BootROM v2.0 - Enter ROM filename: ")
+    0x0611002D,  // LD R17, 45 ("NeoCHIP-8 BootROM v2.0 - Enter ROM filename: ")
     
     // 0x0004: WRITE syscall로 부팅 메시지 출력 (fd=1, buffer=0x0100)  
     0x10101000 | (0x0100 << 4) | 1,  // SYSCALL WRITE fd=1, buffer=0x0100, size=R17

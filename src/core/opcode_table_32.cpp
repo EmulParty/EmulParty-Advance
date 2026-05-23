@@ -4,13 +4,15 @@
 #include "timer.hpp"          //  timer::get_ticks() 사용을 위해 추가!
 #include "stack_opcodes.hpp"   //  스택 관련 명령어를 사용하기 위해 추가!
 #include "stack_frame.hpp"
-#include "sdl_console_io.hpp"  
-#include "platform.hpp"      
+#include "sdl_console_io.hpp"
+#include "platform.hpp"
+#include "syscall/syscall_policy.hpp"
+#include "security/audit_log.hpp"
 #include <stdexcept>
 #include <iostream>
-#include <cstring>  
-#include <random>   
-#include <fstream>  
+#include <cstring>
+#include <random>
+#include <fstream>
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -533,15 +535,15 @@ namespace OpcodeTable_32 {
 
     /// @brief SYSCALL 처리 (10SAAAAF) - ModeSelector 호출 수정 버전
     void OP_10SAAAAF(Chip8_32& chip8_32, uint32_t opcode) {
-        uint8_t syscall_num = (opcode & 0x00F00000) >> 20;  
-        uint16_t buffer_addr = (opcode & 0x000FFFF0) >> 4;  
-        uint8_t fd = opcode & 0x0000000F;                   
-        
+        uint8_t syscall_num = (opcode & 0x00F00000) >> 20;
+        uint16_t buffer_addr = (opcode & 0x000FFFF0) >> 4;
+        uint8_t fd = opcode & 0x0000000F;
+
         std::cout << "\n=== SYSCALL ===" << std::endl;
-        std::cout << "Syscall: " << static_cast<int>(syscall_num) 
-                << ", Buffer: 0x" << std::hex << buffer_addr 
-                << ", FD: " << std::dec << static_cast<int>(fd) << std::endl; 
-        
+        std::cout << "Syscall: " << static_cast<int>(syscall_num)
+                << ", Buffer: 0x" << std::hex << buffer_addr
+                << ", FD: " << std::dec << static_cast<int>(fd) << std::endl;
+
         // 주소 범위 체크
         if (buffer_addr >= MEMORY_SIZE_32) {
             std::cerr << "Invalid buffer address: 0x" << std::hex << buffer_addr << std::endl;
@@ -549,6 +551,31 @@ namespace OpcodeTable_32 {
             chip8_32.set_pc(chip8_32.get_pc() + 4);
             return;
         }
+
+        // ── 벡터 3 차단: SYSCALL 정책 게이트 (최소권한) ───────────────────────
+        // PC로 BootROM/Guest 프로파일을 구분 → 허용목록 외 syscall은 거부.
+        // BootROM 자신은 LOAD_ROM 포함 모든 호출 허용 (자체가 신뢰 코드).
+        const uint32_t caller_pc = chip8_32.get_pc();
+        const auto profile = security::SyscallPolicy::classify_by_pc(caller_pc);
+        const auto decision = security::SyscallPolicy::evaluate(profile, syscall_num);
+        if (!decision.allowed) {
+            security::AuditLog::record("syscall_policy", security::Decision::Deny,
+                { {"profile", security::to_string(profile)},
+                  {"syscall", decision.syscall_name},
+                  {"num",     static_cast<unsigned int>(syscall_num)},
+                  {"pc",      static_cast<unsigned long>(caller_pc)},
+                  {"reason",  decision.reason} });
+            std::cerr << "[VMM] syscall DENY: " << decision.syscall_name
+                      << " from " << security::to_string(profile)
+                      << " (" << decision.reason << ")" << std::endl;
+            chip8_32.set_R(16, 0xFFFFFFFF);
+            chip8_32.set_pc(caller_pc + 4);
+            return;
+        }
+        security::AuditLog::record("syscall_policy", security::Decision::Allow,
+            { {"profile", security::to_string(profile)},
+              {"syscall", decision.syscall_name},
+              {"num",     static_cast<unsigned int>(syscall_num)} });
 
         switch (syscall_num) {
             case 0x0: {  // READ syscall - 스택 프레임 지원 추가
