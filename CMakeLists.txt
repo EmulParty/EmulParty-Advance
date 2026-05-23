@@ -54,3 +54,17 @@ target_link_libraries(chip8_dual ${SDL2_LIBRARIES} ${SDL2_TTF_LIBRARIES})
 # 🔧 추가: 컴파일 옵션
 # 컴파일 플래그
 target_compile_options(chip8_dual PRIVATE -Wall -Wextra ${SDL2_CFLAGS_OTHER} ${SDL2_TTF_CFLAGS_OTHER})
+
+# ── 단위 테스트: VMM 하드닝 회귀 방지 (Catch2) ──────────────────────────────
+# SDL/플랫폼 의존 없는 순수 정책 코드만 묶어서 가볍게 돌린다.
+add_executable(test_hardening
+    test/test_hardening.cpp
+    src/security/path_jail.cpp
+    src/security/audit_log.cpp
+    src/syscall/syscall_policy.cpp
+)
+target_include_directories(test_hardening PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/test
+)
+target_compile_options(test_hardening PRIVATE -Wall -Wextra)
